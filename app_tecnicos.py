@@ -1,34 +1,54 @@
 import streamlit as st
 from supabase import create_client
 
-# Configurações do seu banco de dados
-URL = "https://ozcgilhxomoyqaejwyrs.supabase.co"
-KEY = "sb_publishable_lrV26hcUDDuUpG0_pXSmFQ_S2T35_ZK" # Cole sua chave sb_publishable... aqui
+st.set_page_config(page_title="LRVIX - Acesso", layout="centered")
 
-supabase = create_client(URL, KEY)
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+supabase = create_client(url, key)
 
-st.title("👨‍🔧 Cadastro de Técnicos - LRVIX")
+st.title("🔐 Acesso LRVIX")
 
-# Formulário de entrada
-with st.form("form_tecnico"):
-    nome = st.text_input("Nome do Técnico")
-    cpf = st.text_input("CPF")
-    email = st.text_input("E-mail")
-    telefone = st.text_input("Telefone")
+if 'logado' not in st.session_state:
+    st.session_state.logado = False
+
+if not st.session_state.logado:
+    tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
     
-    btn_cadastrar = st.form_submit_button("Cadastrar Técnico")
+    with tab1:
+        cpf_log = st.text_input("CPF", key="login_cpf")
+        senha_log = st.text_input("Senha", type="password", key="login_senha")
+        if st.button("Entrar"):
+            user = supabase.table("TECNICOS").select("*").eq("cpf", cpf_log).eq("senha", senha_log).execute()
+            if user.data:
+                st.session_state.logado = True
+                st.session_state.nome_tecnico = user.data[0]['nome']
+                st.rerun()
+            else:
+                st.error("CPF ou Senha inválidos!")
 
-    if btn_cadastrar:
-        dados = {"nome": nome, "cpf": cpf, "email": email, "telefone": telefone}
-        try:
-            supabase.table("TECNICOS").insert(dados).execute()
-            st.success(f"Técnico {nome} cadastrado com sucesso!")
-        except Exception as e:
-            st.error(f"Erro ao cadastrar: {e}")
-
-# Exibir técnicos já cadastrados
-st.divider()
-st.subheader("Técnicos Cadastrados")
-if st.button("Atualizar lista"):
-    response = supabase.table("TECNICOS").select("*").execute()
-    st.table(response.data)
+    with tab2:
+        with st.form("form_cadastro", clear_on_submit=True):
+            nome = st.text_input("Nome Completo")
+            cpf_cad = st.text_input("CPF (Será seu login)")
+            senha_cad = st.text_input("Senha", type="password")
+            
+            if st.form_submit_button("Finalizar Cadastro"):
+                # 1. Verifica se CPF já existe
+                check = supabase.table("TECNICOS").select("cpf").eq("cpf", cpf_cad).execute()
+                
+                if check.data:
+                    st.error("❌ Este CPF já está cadastrado!")
+                elif not nome or not cpf_cad or not senha_cad:
+                    st.warning("⚠️ Preencha todos os campos!")
+                else:
+                    # 2. Insere se não existir
+                    supabase.table("TECNICOS").insert({
+                        "nome": nome, "cpf": cpf_cad, "senha": senha_cad
+                    }).execute()
+                    st.success("Cadastro realizado com sucesso! Vá para a aba Login.")
+else:
+    st.success(f"Logado como: {st.session_state.nome_tecnico}")
+    if st.button("Sair"):
+        st.session_state.logado = False
+        st.rerun()
