@@ -17,6 +17,13 @@ if "modo_admin" not in st.session_state:
 
 # --- FUNÇÕES ---
 def cadastrar_tecnico(nome, cpf, email, telefone, senha):
+    # Verifica se o CPF já existe antes de tentar cadastrar
+    existe = supabase.table("TECNICOS").select("cpf").eq("cpf", cpf).execute()
+    
+    if existe.data:
+        st.error("⚠️ Este CPF já está cadastrado!")
+        return False
+    
     try:
         supabase.table("TECNICOS").insert({
             "nome": nome, 
@@ -37,7 +44,6 @@ if not st.session_state.logado:
     
     with tab1:
         cpf_input = st.text_input("CPF")
-        # Key única adicionada
         senha_input = st.text_input("Senha", type="password", key="login_senha")
         if st.button("Entrar"):
             user = supabase.table("TECNICOS").select("*").eq("cpf", cpf_input).eq("senha", senha_input).execute()
@@ -54,7 +60,6 @@ if not st.session_state.logado:
         cpf = st.text_input("CPF (somente números)")
         email = st.text_input("E-mail")
         telefone = st.text_input("Telefone")
-        # Keys únicas adicionadas
         senha = st.text_input("Senha", type="password", key="cad_senha")
         confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
         
@@ -77,7 +82,6 @@ else:
 
     if st.session_state.modo_admin:
         st.subheader("🔐 Área de Gestão de Perfis")
-        # Key única adicionada
         senha_admin = st.text_input("Digite a Senha Mestra:", type="password", key="admin_senha")
         
         if senha_admin == "123456":
