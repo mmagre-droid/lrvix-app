@@ -2,7 +2,7 @@ import streamlit as st
 from supabase import create_client
 
 # --- CONFIGURAÇÃO ---
-# Certifique-se de que SUPABASE_URL e SUPABASE_KEY estão nos "Secrets" do Streamlit Cloud
+# Certifique-se de que SUPABASE_URL e SUPABASE_KEY estão nos "Secrets" do Streamlit
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
@@ -24,7 +24,7 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
             "email": email, 
             "telefone": telefone, 
             "senha": senha,
-            "perfil": "Técnico" # Perfil padrão ao cadastrar
+            "perfil": "Técnico"
         }).execute()
         return True
     except Exception as e:
@@ -37,7 +37,8 @@ if not st.session_state.logado:
     
     with tab1:
         cpf_input = st.text_input("CPF")
-        senha_input = st.text_input("Senha", type="password")
+        # Key única adicionada
+        senha_input = st.text_input("Senha", type="password", key="login_senha")
         if st.button("Entrar"):
             user = supabase.table("TECNICOS").select("*").eq("cpf", cpf_input).eq("senha", senha_input).execute()
             if user.data:
@@ -53,8 +54,9 @@ if not st.session_state.logado:
         cpf = st.text_input("CPF (somente números)")
         email = st.text_input("E-mail")
         telefone = st.text_input("Telefone")
-        senha = st.text_input("Senha", type="password")
-        confirma_senha = st.text_input("Confirme sua Senha", type="password")
+        # Keys únicas adicionadas
+        senha = st.text_input("Senha", type="password", key="cad_senha")
+        confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
         
         if st.button("Finalizar Cadastro"):
             if senha != confirma_senha:
@@ -69,16 +71,16 @@ else:
     # --- ÁREA LOGADA ---
     st.success(f"Logado como: {st.session_state.nome_tecnico} ({st.session_state.perfil})")
     
-    # Painel Administrativo
     if st.button("Painel de Administração"):
         st.session_state.modo_admin = True
         st.rerun()
 
     if st.session_state.modo_admin:
         st.subheader("🔐 Área de Gestão de Perfis")
-        senha_admin = st.text_input("Digite a Senha Mestra:", type="password")
+        # Key única adicionada
+        senha_admin = st.text_input("Digite a Senha Mestra:", type="password", key="admin_senha")
         
-        if senha_admin == "123456": 
+        if senha_admin == "123456":
             usuarios = supabase.table("TECNICOS").select("*").execute()
             
             edited_data = st.data_editor(usuarios.data, column_config={
