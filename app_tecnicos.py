@@ -120,7 +120,7 @@ else:
 
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
-        st.info("Trabalho em Altura com Risco Elétrico[cite: 1]")
+        st.info("Trabalho em Altura com Risco Elétrico")
         st.write(f"**Equipe (Técnico):** {st.session_state.nome_tecnico}")
         
         with st.form("form_apr", clear_on_submit=True):
@@ -132,16 +132,16 @@ else:
                 placa_veiculo = st.text_input("Placa do Veículo")
             
             st.divider()
-            st.write("### ✅ CHECKLIST DE EPIs E EPCs[cite: 1]")
+            st.write("### ✅ CHECKLIST DE EPIs E EPCs")
             c1, c2 = st.columns(2)
             with c1:
-                uso_cinto = st.checkbox("Cinto de Segurança (Inspeção OK)[cite: 1]")
-                talabarte = st.checkbox("Talabarte Duplo (Inspeção OK)[cite: 1]")
-                luvas = st.checkbox("Luvas Isolantes (Teste de ar OK)[cite: 1]")
+                uso_cinto = st.checkbox("Cinto de Segurança (Inspeção OK)")
+                talabarte = st.checkbox("Talabarte Duplo (Inspeção OK)")
+                luvas = st.checkbox("Luvas Isolantes (Teste de ar OK)")
             with c2:
-                uso_capacete = st.checkbox("Capacete Classe B (Validade OK)[cite: 1]")
-                area_sinalizada = st.checkbox("Sinalização da área inferior (EPC)[cite: 1]")
-                verificacao_geral = st.checkbox("Verificação Geral concluída[cite: 1]")
+                uso_capacete = st.checkbox("Capacete Classe B (Validade OK)")
+                area_sinalizada = st.checkbox("Sinalização da área inferior (EPC)")
+                verificacao_geral = st.checkbox("Verificação Geral concluída")
             
             st.divider()
             # --- NOVA LÓGICA DE PARALISAÇÃO ---
@@ -152,7 +152,7 @@ else:
                 st.warning("⚠️ Devido à interrupção, o envio de uma foto do local é obrigatório.")
                 foto_paralisacao = st.file_uploader("📸 Foto da ocorrência (Obrigatório)", type=['jpg', 'png', 'jpeg'])
             
-            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS[cite: 1]")
+            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS")
             
             if st.form_submit_button("REGISTRAR APR"):
                 # Validação da obrigatoriedade da foto
