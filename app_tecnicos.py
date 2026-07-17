@@ -85,7 +85,6 @@ else:
                 endereco = st.text_input("Endereço")
             with c2:
                 protocolo = st.text_input("Protocolo")
-                # Opções atualizadas
                 mercado = st.selectbox("Mercado", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
                 tipo_servico = st.selectbox("Tipo de Serviço", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
             
@@ -114,12 +113,36 @@ else:
             st.info("Nenhum atendimento registrado.")
 
     with aba3:
-        st.subheader("Análise Preliminar de Risco (APR)")
-        st.checkbox("Uso de EPIs obrigatórios")
-        st.checkbox("Área isolada e sinalizada")
-        st.selectbox("Nível de risco", ["Baixo", "Médio", "Alto"])
-        if st.button("Finalizar APR"):
-            st.success("APR registrada!")
+        st.subheader("⚠️ Análise Preliminar de Risco (APR)")
+        with st.form("form_apr", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                data_atividade = st.date_input("Data da Atividade")
+                placa_veiculo = st.text_input("Placa do Veículo")
+                local_atividade = st.text_input("Local da Atividade")
+            with col2:
+                area_sinalizada = st.checkbox("Área Sinalizada")
+                uso_cinto = st.checkbox("Uso de Cinto")
+                uso_capacete = st.checkbox("Uso de Capacete")
+                verificacao_geral = st.checkbox("Verificação Geral")
+                responsavel = st.checkbox("Responsável")
+            
+            if st.form_submit_button("Registrar APR"):
+                try:
+                    supabase.table("APR").insert({
+                        "data_atividade": str(data_atividade),
+                        "placa_veiculo": placa_veiculo,
+                        "local_atividade": local_atividade,
+                        "area_sinalizada": area_sinalizada,
+                        "uso_cinto": uso_cinto,
+                        "uso_capacete": uso_capacete,
+                        "verificacao_geral": verificacao_geral,
+                        "responsavel": responsavel,
+                        "perfil": st.session_state.perfil
+                    }).execute()
+                    st.success("APR registrada com sucesso!")
+                except Exception as e:
+                    st.error(f"Erro ao salvar APR: {e}")
 
     with aba4:
         if st.button("SAIR DO SISTEMA"):
@@ -132,7 +155,6 @@ else:
         if senha_admin == "123456":
             usuarios = supabase.table("TECNICOS").select("*").execute()
             
-            # Aqui está a lógica que permite alterar os perfis
             edited_data = st.data_editor(usuarios.data, column_config={
                 "perfil": st.column_config.SelectboxColumn(
                     "PERFIL",
@@ -145,7 +167,6 @@ else:
                 sucesso = True
                 for row in edited_data:
                     try:
-                        # Atualiza no banco usando o CPF como referência
                         supabase.table("TECNICOS").update({"perfil": row["perfil"]}).eq("cpf", row["cpf"]).execute()
                     except:
                         sucesso = False
