@@ -160,5 +160,29 @@ else:
                         st.error(f"Erro ao salvar APR: {e}")
 
     with aba4:
-        # (Seu código da aba4 permanece igual)
-        pass
+        st.subheader("ADMINISTRAÇÃO DE PERFIS")
+        senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+        
+        if senha_admin == "123456":
+            usuarios = supabase.table("TECNICOS").select("*").execute()
+            
+            edited_data = st.data_editor(usuarios.data, column_config={
+                "perfil": st.column_config.SelectboxColumn(
+                    "PERFIL",
+                    options=["Técnico", "Assistente", "Administrador"],
+                    required=True,
+                )
+            })
+            
+            if st.button("SALVAR PERFIS"):
+                sucesso = True
+                for row in edited_data:
+                    try:
+                        supabase.table("TECNICOS").update({"perfil": row["perfil"]}).eq("cpf", row["cpf"]).execute()
+                    except:
+                        sucesso = False
+                if sucesso:
+                    st.success("PERFIS ATUALIZADOS!")
+                    st.rerun()
+        elif senha_admin:
+            st.error("SENHA INCORRETA!")
