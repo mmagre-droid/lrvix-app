@@ -145,7 +145,7 @@ else:
             
             st.divider()
             # --- NOVA LÓGICA DE PARALISAÇÃO ---
-            houve_paralisacao = st.checkbox("Houve interrupção das atividades por condições inseguras?[cite: 1]")
+            houve_paralisacao = st.checkbox("Houve interrupção das atividades por condições inseguras?")
             
             foto_paralisacao = None
             if houve_paralisacao:
