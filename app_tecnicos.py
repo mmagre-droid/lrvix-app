@@ -87,18 +87,18 @@ else:
         with st.form("form_atendimento", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
-                data_execucao = st.date_input("Data da Execução")
-                cliente = st.text_input("Nome do Cliente")
+                data_execucao = st.date_input("DATA DA EXECUÇÃO")
+                cliente = st.text_input("NOME DO CLIENTE")
                 endereco = st.text_input("Endereço")
             with c2:
-                protocolo = st.text_input("Protocolo")
-                mercado = st.selectbox("Mercado", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
-                tipo_servico = st.selectbox("Tipo de Serviço", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
+                protocolo = st.text_input("PROTOCOLO")
+                mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
+                tipo_servico = st.selectbox("TIPO DE SERVIÇO", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
             
-            observacao = st.text_area("Observação")
-            foto_arquivo = st.file_uploader("Foto do Serviço", type=['jpg', 'png', 'jpeg'])
+            observacao = st.text_area("OBSERVAÇÃO")
+            foto_arquivo = st.file_uploader("FOTO DO SERVIÇO", type=['jpg', 'png', 'jpeg'])
             
-            if st.form_submit_button("Registrar Atendimento"):
+            if st.form_submit_button("REGISTRAR ATENDIMENTO"):
                 url_foto = ""
                 if foto_arquivo:
                     try:
