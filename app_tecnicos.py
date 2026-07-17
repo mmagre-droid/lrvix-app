@@ -13,9 +13,6 @@ if "logado" not in st.session_state:
     st.session_state.logado = False
 if "modo_admin" not in st.session_state:
     st.session_state.modo_admin = False
-# Estado específico para a APR reativa
-if "chk_paralisacao" not in st.session_state:
-    st.session_state.chk_paralisacao = False
 
 # --- FUNÇÕES ---
 def cadastrar_tecnico(nome, cpf, email, telefone, senha):
@@ -47,9 +44,6 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
         st.error(f"Erro ao salvar: {e}")
         return False
 
-def atualizar_estado_apr():
-    st.session_state.chk_paralisacao = st.session_state.paralisacao_key
-
 # --- INTERFACE ---
 if not st.session_state.logado:
     tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
@@ -75,6 +69,7 @@ if not st.session_state.logado:
         if st.button("Finalizar Cadastro"):
             if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
                 st.success("Cadastro realizado!")
+
 else:
     # --- BARRA LATERAL ---
     with st.sidebar:
@@ -149,34 +144,23 @@ else:
                 verificacao_geral = st.checkbox("Verificação Geral concluída[cite: 1]")
             
             st.divider()
-            
-            # Checkbox com callback para interface reativa
-            houve_paralisacao = st.checkbox(
-                "Houve interrupção das atividades por condições inseguras?[cite: 1]",
-                key="paralisacao_key",
-                on_change=atualizar_estado_apr
-            )
+            # --- NOVA LÓGICA DE PARALISAÇÃO ---
+            houve_paralisacao = st.checkbox("Houve interrupção das atividades por condições inseguras?[cite: 1]")
             
             foto_paralisacao = None
-            if st.session_state.chk_paralisacao:
+            if houve_paralisacao:
                 st.warning("⚠️ Devido à interrupção, o envio de uma foto do local é obrigatório.")
                 foto_paralisacao = st.file_uploader("📸 Foto da ocorrência (Obrigatório)", type=['jpg', 'png', 'jpeg'])
             
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS[cite: 1]")
             
             if st.form_submit_button("REGISTRAR APR"):
-                if st.session_state.chk_paralisacao and not foto_paralisacao:
+                # Validação da obrigatoriedade da foto
+                if houve_paralisacao and not foto_paralisacao:
                     st.error("Erro: A foto é obrigatória quando o serviço é paralisado!")
                 else:
-                    caminho_foto = ""
-                    if foto_paralisacao:
-                        try:
-                            caminho_foto = f"fotos_apr/{foto_paralisacao.name}"
-                            supabase.storage.from_("fotos_atendimentos").upload(caminho_foto, foto_paralisacao.getvalue())
-                        except Exception as e:
-                            st.error(f"Erro ao subir foto: {e}")
-
                     try:
+                        # Logica simplificada de inserção
                         supabase.table("APR").insert({
                             "data_atividade": str(data_atividade),
                             "local_atividade": local_atividade,
@@ -185,9 +169,8 @@ else:
                             "uso_cinto": uso_cinto,
                             "uso_capacete": uso_capacete,
                             "area_sinalizada": area_sinalizada,
-                            "houve_paralisacao": st.session_state.chk_paralisacao,
+                            "houve_paralisacao": houve_paralisacao,
                             "motivo_paralisacao": motivo_paralisacao,
-                            "foto_paralisacao": caminho_foto, # <--- Nova coluna gravada
                             "perfil": st.session_state.perfil
                         }).execute()
                         st.success("APR registrada com sucesso!")
@@ -197,15 +180,27 @@ else:
     with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+        
         if senha_admin == "123456":
             usuarios = supabase.table("TECNICOS").select("*").execute()
+            
             edited_data = st.data_editor(usuarios.data, column_config={
-                "perfil": st.column_config.SelectboxColumn("PERFIL", options=["Técnico", "Assistente", "Administrador"], required=True)
+                "perfil": st.column_config.SelectboxColumn(
+                    "PERFIL",
+                    options=["Técnico", "Assistente", "Administrador"],
+                    required=True,
+                )
             })
+            
             if st.button("SALVAR PERFIS"):
+                sucesso = True
                 for row in edited_data:
-                    supabase.table("TECNICOS").update({"perfil": row["perfil"]}).eq("cpf", row["cpf"]).execute()
-                st.success("PERFIS ATUALIZADOS!")
-                st.rerun()
+                    try:
+                        supabase.table("TECNICOS").update({"perfil": row["perfil"]}).eq("cpf", row["cpf"]).execute()
+                    except:
+                        sucesso = False
+                if sucesso:
+                    st.success("PERFIS ATUALIZADOS!")
+                    st.rerun()
         elif senha_admin:
             st.error("SENHA INCORRETA!")
