@@ -120,7 +120,7 @@ else:
 
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
-        st.info("Trabalho em Altura com Risco Elétrico")
+        st.info("Trabalho em Altura com Risco Elétrico[cite: 1]")
         st.write(f"**Equipe (Técnico):** {st.session_state.nome_tecnico}")
         
         with st.form("form_apr", clear_on_submit=True):
@@ -132,37 +132,50 @@ else:
                 placa_veiculo = st.text_input("Placa do Veículo")
             
             st.divider()
-            st.write("### ✅ CHECKLIST DE EPIs E EPCs")
+            st.write("### ✅ CHECKLIST DE EPIs E EPCs[cite: 1]")
             c1, c2 = st.columns(2)
             with c1:
-                uso_cinto = st.checkbox("Cinto de Segurança (Inspeção OK)")
-                talabarte = st.checkbox("Talabarte Duplo (Inspeção OK)")
-                luvas = st.checkbox("Luvas Isolantes (Teste de ar OK)")
+                uso_cinto = st.checkbox("Cinto de Segurança (Inspeção OK)[cite: 1]")
+                talabarte = st.checkbox("Talabarte Duplo (Inspeção OK)[cite: 1]")
+                luvas = st.checkbox("Luvas Isolantes (Teste de ar OK)[cite: 1]")
             with c2:
-                uso_capacete = st.checkbox("Capacete Classe B (Validade OK)")
-                area_sinalizada = st.checkbox("Sinalização da área inferior (EPC)")
-                verificacao_geral = st.checkbox("Verificação Geral concluída")
+                uso_capacete = st.checkbox("Capacete Classe B (Validade OK)[cite: 1]")
+                area_sinalizada = st.checkbox("Sinalização da área inferior (EPC)[cite: 1]")
+                verificacao_geral = st.checkbox("Verificação Geral concluída[cite: 1]")
             
             st.divider()
-            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO (SE HOUVER)", 
-                                              help="Caso o serviço seja interrompido por condições inseguras, descreva o motivo e a ação corretiva[cite: 1].")
+            # --- NOVA LÓGICA DE PARALISAÇÃO ---
+            houve_paralisacao = st.checkbox("Houve interrupção das atividades por condições inseguras?[cite: 1]")
+            
+            foto_paralisacao = None
+            if houve_paralisacao:
+                st.warning("⚠️ Devido à interrupção, o envio de uma foto do local é obrigatório.")
+                foto_paralisacao = st.file_uploader("📸 Foto da ocorrência (Obrigatório)", type=['jpg', 'png', 'jpeg'])
+            
+            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS[cite: 1]")
             
             if st.form_submit_button("REGISTRAR APR"):
-                try:
-                    supabase.table("APR").insert({
-                        "data_atividade": str(data_atividade),
-                        "local_atividade": local_atividade,
-                        "equipe": st.session_state.nome_tecnico,
-                        "placa_veiculo": placa_veiculo,
-                        "uso_cinto": uso_cinto,
-                        "uso_capacete": uso_capacete,
-                        "area_sinalizada": area_sinalizada,
-                        "motivo_paralisacao": motivo_paralisacao,
-                        "perfil": st.session_state.perfil
-                    }).execute()
-                    st.success("APR registrada com sucesso!")
-                except Exception as e:
-                    st.error(f"Erro ao salvar APR: {e}")
+                # Validação da obrigatoriedade da foto
+                if houve_paralisacao and not foto_paralisacao:
+                    st.error("Erro: A foto é obrigatória quando o serviço é paralisado!")
+                else:
+                    try:
+                        # Logica simplificada de inserção
+                        supabase.table("APR").insert({
+                            "data_atividade": str(data_atividade),
+                            "local_atividade": local_atividade,
+                            "equipe": st.session_state.nome_tecnico,
+                            "placa_veiculo": placa_veiculo,
+                            "uso_cinto": uso_cinto,
+                            "uso_capacete": uso_capacete,
+                            "area_sinalizada": area_sinalizada,
+                            "houve_paralisacao": houve_paralisacao,
+                            "motivo_paralisacao": motivo_paralisacao,
+                            "perfil": st.session_state.perfil
+                        }).execute()
+                        st.success("APR registrada com sucesso!")
+                    except Exception as e:
+                        st.error(f"Erro ao salvar APR: {e}")
 
     with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
