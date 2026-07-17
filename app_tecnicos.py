@@ -1,3 +1,4 @@
+Python
 import streamlit as st
 from supabase import create_client
 
@@ -69,7 +70,9 @@ if not st.session_state.logado:
         if st.button("Finalizar Cadastro"):
             if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
                 st.success("Cadastro realizado!")
+
 else:
+    # --- BARRA LATERAL ---
     with st.sidebar:
         st.write(f"👤 Usuário: {st.session_state.nome_tecnico}")
         if st.button("SAIR DO SISTEMA"):
@@ -118,14 +121,9 @@ else:
 
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+        st.info("Trabalho em Altura com Risco Elétrico[cite: 1]")
+        st.write(f"**Equipe (Técnico):** {st.session_state.nome_tecnico}")
         
-        # Lógica de estado para o checkbox
-        if "houve_paralisacao" not in st.session_state:
-            st.session_state.houve_paralisacao = False
-
-        def atualizar_check():
-            st.session_state.houve_paralisacao = st.session_state.chk_paralisacao
-
         with st.form("form_apr", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
@@ -135,37 +133,35 @@ else:
                 placa_veiculo = st.text_input("Placa do Veículo")
             
             st.divider()
-            uso_cinto = st.checkbox("Cinto de Segurança (Inspeção OK)")
-            uso_capacete = st.checkbox("Capacete Classe B (Validade OK)")
-            area_sinalizada = st.checkbox("Sinalização da área inferior (EPC)")
+            st.write("### ✅ CHECKLIST DE EPIs E EPCs[cite: 1]")
+            c1, c2 = st.columns(2)
+            with c1:
+                uso_cinto = st.checkbox("Cinto de Segurança (Inspeção OK)[cite: 1]")
+                talabarte = st.checkbox("Talabarte Duplo (Inspeção OK)[cite: 1]")
+                luvas = st.checkbox("Luvas Isolantes (Teste de ar OK)[cite: 1]")
+            with c2:
+                uso_capacete = st.checkbox("Capacete Classe B (Validade OK)[cite: 1]")
+                area_sinalizada = st.checkbox("Sinalização da área inferior (EPC)[cite: 1]")
+                verificacao_geral = st.checkbox("Verificação Geral concluída[cite: 1]")
             
             st.divider()
-            houve_paralisacao = st.checkbox(
-                "Houve interrupção das atividades por condições inseguras?", 
-                key="chk_paralisacao", 
-                on_change=atualizar_check
-            )
+            # --- NOVA LÓGICA DE PARALISAÇÃO ---
+            houve_paralisacao = st.checkbox("Houve interrupção das atividades por condições inseguras?[cite: 1]")
             
             foto_paralisacao = None
-            if st.session_state.houve_paralisacao:
-                st.warning("⚠️ O envio de uma foto do local é obrigatório.")
-                foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
+            if houve_paralisacao:
+                st.warning("⚠️ Devido à interrupção, o envio de uma foto do local é obrigatório.")
+                foto_paralisacao = st.file_uploader("📸 Foto da ocorrência (Obrigatório)", type=['jpg', 'png', 'jpeg'])
             
-            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS")
+            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS[cite: 1]")
             
             if st.form_submit_button("REGISTRAR APR"):
-                if st.session_state.houve_paralisacao and not foto_paralisacao:
+                # Validação da obrigatoriedade da foto
+                if houve_paralisacao and not foto_paralisacao:
                     st.error("Erro: A foto é obrigatória quando o serviço é paralisado!")
                 else:
-                    caminho_foto = ""
-                    if foto_paralisacao:
-                        try:
-                            caminho_foto = f"fotos_apr/{foto_paralisacao.name}"
-                            supabase.storage.from_("fotos_atendimentos").upload(caminho_foto, foto_paralisacao.getvalue())
-                        except Exception as e:
-                            st.error(f"Erro ao subir foto: {e}")
-                    
                     try:
+                        # Logica simplificada de inserção
                         supabase.table("APR").insert({
                             "data_atividade": str(data_atividade),
                             "local_atividade": local_atividade,
@@ -174,9 +170,8 @@ else:
                             "uso_cinto": uso_cinto,
                             "uso_capacete": uso_capacete,
                             "area_sinalizada": area_sinalizada,
-                            "houve_paralisacao": st.session_state.houve_paralisacao,
+                            "houve_paralisacao": houve_paralisacao,
                             "motivo_paralisacao": motivo_paralisacao,
-                            "foto_paralisacao": caminho_foto,
                             "perfil": st.session_state.perfil
                         }).execute()
                         st.success("APR registrada com sucesso!")
@@ -186,11 +181,27 @@ else:
     with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+        
         if senha_admin == "123456":
             usuarios = supabase.table("TECNICOS").select("*").execute()
-            edited_data = st.data_editor(usuarios.data, column_config={"perfil": st.column_config.SelectboxColumn("PERFIL", options=["Técnico", "Assistente", "Administrador"], required=True)})
+            
+            edited_data = st.data_editor(usuarios.data, column_config={
+                "perfil": st.column_config.SelectboxColumn(
+                    "PERFIL",
+                    options=["Técnico", "Assistente", "Administrador"],
+                    required=True,
+                )
+            })
+            
             if st.button("SALVAR PERFIS"):
+                sucesso = True
                 for row in edited_data:
-                    supabase.table("TECNICOS").update({"perfil": row["perfil"]}).eq("cpf", row["cpf"]).execute()
-                st.success("PERFIS ATUALIZADOS!")
-                st.rerun()
+                    try:
+                        supabase.table("TECNICOS").update({"perfil": row["perfil"]}).eq("cpf", row["cpf"]).execute()
+                    except:
+                        sucesso = False
+                if sucesso:
+                    st.success("PERFIS ATUALIZADOS!")
+                    st.rerun()
+        elif senha_admin:
+            st.error("SENHA INCORRETA!")
