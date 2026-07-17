@@ -71,6 +71,13 @@ if not st.session_state.logado:
                 st.success("Cadastro realizado!")
 
 else:
+    # --- BOTÃO DE SAIR NA BARRA LATERAL ---
+    with st.sidebar:
+        st.write(f"👤 Usuário: {st.session_state.nome_tecnico}")
+        if st.button("SAIR DO SISTEMA"):
+            st.session_state.logado = False
+            st.rerun()
+
     # --- ÁREA LOGADA COM ABAS ---
     st.success(f"Logado como: {st.session_state.nome_tecnico} ({st.session_state.perfil})")
     
@@ -145,10 +152,6 @@ else:
                     st.error(f"Erro ao salvar APR: {e}")
 
     with aba4:
-        if st.button("SAIR DO SISTEMA"):
-            st.session_state.logado = False
-            st.rerun()
-            
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
         
