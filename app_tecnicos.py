@@ -6,122 +6,124 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-st.title("🔐 ACESSO LRVIX")
+st.title("🔐 Acesso LRVIX")
 
-# INICIALIZAÇÃO DO ESTADO
-if "LOGADO" not in st.session_state:
-    st.session_state.LOGADO = False
-if "MODO_ADMIN" not in st.session_state:
-    st.session_state.MODO_ADMIN = False
+# Inicialização do estado
+if "logado" not in st.session_state:
+    st.session_state.logado = False
+if "modo_admin" not in st.session_state:
+    st.session_state.modo_admin = False
 
 # --- FUNÇÕES ---
-def CADASTRAR_TECNICO(NOME, CPF, EMAIL, TELEFONE, SENHA):
-    EXISTE = supabase.table("TECNICOS").select("CPF").eq("CPF", CPF).execute()
-    if EXISTE.data:
-        st.error("⚠️ ESTE CPF JÁ ESTÁ CADASTRADO!")
+def cadastrar_tecnico(nome, cpf, email, telefone, senha):
+    existe = supabase.table("TECNICOS").select("cpf").eq("cpf", cpf).execute()
+    if existe.data:
+        st.error("⚠️ Este CPF já está cadastrado!")
         return False
     try:
-        supabase.table("TECNICOS").insert({"NOME": NOME, "CPF": CPF, "EMAIL": EMAIL, "TELEFONE": TELEFONE, "SENHA": SENHA, "PERFIL": "TÉCNICO"}).execute()
+        supabase.table("TECNICOS").insert({"nome": nome, "cpf": cpf, "email": email, "telefone": telefone, "senha": senha, "perfil": "Técnico"}).execute()
         return True
-    except Exception as E:
-        st.error(f"ERRO AO CADASTRAR: {E}")
+    except Exception as e:
+        st.error(f"Erro ao cadastrar: {e}")
         return False
 
-def REGISTRAR_ATENDIMENTO(DATA_EXECUCAO, CLIENTE, ENDERECO, PROTOCOLO, MERCADO, TIPO_SERVICO, OBSERVACAO, FOTO_URL):
+def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url):
     try:
         supabase.table("ATENDIMENTO").insert({
-            "DATA_EXECUCAO": str(DATA_EXECUCAO),
-            "CLIENTE": CLIENTE,
-            "ENDERECO": ENDERECO,
-            "PROTOCOLO": PROTOCOLO,
-            "MERCADO": MERCADO,
-            "TIPO_SERVICO": TIPO_SERVICO,
-            "OBSERVACAO": OBSERVACAO,
-            "FOTO": FOTO_URL
+            "data_execucao": str(data_execucao),
+            "cliente": cliente,
+            "endereco": endereco,
+            "protocolo": protocolo,
+            "mercado": mercado,
+            "tipo_servico": tipo_servico,
+            "observacao": observacao,
+            "foto": foto_url
         }).execute()
         return True
-    except Exception as E:
-        st.error(f"ERRO AO SALVAR: {E}")
+    except Exception as e:
+        st.error(f"Erro ao salvar: {e}")
         return False
 
 # --- INTERFACE ---
-if not st.session_state.LOGADO:
-    TAB1, TAB2 = st.tabs(["LOGIN", "CADASTRAR TÉCNICO"])
-    with TAB1:
-        CPF_INPUT = st.text_input("CPF")
-        SENHA_INPUT = st.text_input("SENHA", type="password", key="LOGIN_SENHA")
-        if st.button("ENTRAR"):
-            USER = supabase.table("TECNICOS").select("*").eq("CPF", CPF_INPUT).eq("SENHA", SENHA_INPUT).execute()
-            if USER.data:
-                st.session_state.LOGADO = True
-                st.session_state.NOME_TECNICO = USER.data[0]["NOME"]
-                st.session_state.PERFIL = USER.data[0]["PERFIL"]
+if not st.session_state.logado:
+    tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
+    with tab1:
+        cpf_input = st.text_input("CPF")
+        senha_input = st.text_input("Senha", type="password", key="login_senha")
+        if st.button("Entrar"):
+            user = supabase.table("TECNICOS").select("*").eq("cpf", cpf_input).eq("senha", senha_input).execute()
+            if user.data:
+                st.session_state.logado = True
+                st.session_state.nome_tecnico = user.data[0]["nome"]
+                st.session_state.perfil = user.data[0]["perfil"]
                 st.rerun()
             else:
-                st.error("CPF OU SENHA INCORRETOS.")
-    with TAB2:
-        NOME = st.text_input("NOME COMPLETO")
-        CPF = st.text_input("CPF (SOMENTE NÚMEROS)")
-        EMAIL = st.text_input("E-MAIL")
-        TELEFONE = st.text_input("TELEFONE")
-        SENHA = st.text_input("SENHA", type="password", key="CAD_SENHA")
-        CONFIRMA_SENHA = st.text_input("CONFIRME SUA SENHA", type="password", key="CAD_CONFIRMA")
-        if st.button("FINALIZAR CADASTRO"):
-            if SENHA == CONFIRMA_SENHA and CADASTRAR_TECNICO(NOME, CPF, EMAIL, TELEFONE, SENHA):
-                st.success("CADASTRO REALIZADO!")
+                st.error("CPF ou Senha incorretos.")
+    with tab2:
+        nome = st.text_input("Nome Completo")
+        cpf = st.text_input("CPF (somente números)")
+        email = st.text_input("E-mail")
+        telefone = st.text_input("Telefone")
+        senha = st.text_input("Senha", type="password", key="cad_senha")
+        confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
+        if st.button("Finalizar Cadastro"):
+            if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
+                st.success("Cadastro realizado!")
 
 else:
     # --- ÁREA LOGADA COM ABAS ---
-    st.success(f"LOGADO COMO: {st.session_state.NOME_TECNICO} ({st.session_state.PERFIL})")
+    st.success(f"Logado como: {st.session_state.nome_tecnico} ({st.session_state.perfil})")
     
-    ABA1, ABA2, ABA3, ABA4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "⚙️ ADMIN"])
+    aba1, aba2, aba3, aba4 = st.tabs(["📝 Formulário", "📊 Produtividade", "⚠️ APR", "⚙️ Admin"])
 
-    with ABA1:
-        with st.form("FORM_ATENDIMENTO", clear_on_submit=True):
-            C1, C2 = st.columns(2)
-            with C1:
-                DATA_EXECUCAO = st.date_input("DATA DA EXECUÇÃO")
-                CLIENTE = st.text_input("NOME DO CLIENTE")
-                ENDERECO = st.text_input("ENDEREÇO")
-            with C2:
-                PROTOCOLO = st.text_input("PROTOCOLO")
-                MERCADO = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
-                TIPO_SERVICO = st.selectbox("TIPO DE SERVIÇO", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
+    with aba1:
+        with st.form("form_atendimento", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            with c1:
+                data_execucao = st.date_input("Data da Execução")
+                cliente = st.text_input("Nome do Cliente")
+                endereco = st.text_input("Endereço")
+            with c2:
+                protocolo = st.text_input("Protocolo")
+                # Opções atualizadas
+                mercado = st.selectbox("Mercado", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
+                tipo_servico = st.selectbox("Tipo de Serviço", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
             
-            OBSERVACAO = st.text_area("OBSERVAÇÃO")
-            FOTO_ARQUIVO = st.file_uploader("FOTO DO SERVIÇO", type=['JPG', 'PNG', 'JPEG'])
+            observacao = st.text_area("Observação")
+            foto_arquivo = st.file_uploader("Foto do Serviço", type=['jpg', 'png', 'jpeg'])
             
-            if st.form_submit_button("REGISTRAR ATENDIMENTO"):
-                URL_FOTO = ""
-                if FOTO_ARQUIVO:
+            if st.form_submit_button("Registrar Atendimento"):
+                url_foto = ""
+                if foto_arquivo:
                     try:
-                        CAMINHO = f"FOTOS/{FOTO_ARQUIVO.name}"
-                        supabase.storage.from_("FOTOS_ATENDIMENTOS").upload(CAMINHO, FOTO_ARQUIVO.getvalue())
-                        URL_FOTO = CAMINHO
-                    except Exception as E:
-                        st.error(f"ERRO AO SUBIR FOTO: {E}")
+                        caminho = f"fotos/{foto_arquivo.name}"
+                        supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_arquivo.getvalue())
+                        url_foto = caminho
+                    except Exception as e:
+                        st.error(f"Erro ao subir foto: {e}")
                 
-                if REGISTRAR_ATENDIMENTO(DATA_EXECUCAO, CLIENTE, ENDERECO, PROTOCOLO, MERCADO, TIPO_SERVICO, OBSERVACAO, URL_FOTO):
-                    st.success("ATENDIMENTO REGISTRADO COM SUCESSO!")
+                if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto):
+                    st.success("Atendimento registrado com sucesso!")
 
-    with ABA2:
-        st.subheader("LISTA DE ATENDIMENTOS")
-        ATENDIMENTOS = supabase.table("ATENDIMENTO").select("*").execute()
-        if ATENDIMENTOS.data:
-            st.dataframe(ATENDIMENTOS.data, use_container_width=True)
+    with aba2:
+        st.subheader("Lista de Atendimentos")
+        atendimentos = supabase.table("ATENDIMENTO").select("*").execute()
+        if atendimentos.data:
+            st.dataframe(atendimentos.data, use_container_width=True)
         else:
-            st.info("NENHUM ATENDIMENTO REGISTRADO.")
+            st.info("Nenhum atendimento registrado.")
 
-    with ABA3:
-        st.subheader("ANÁLISE PRELIMINAR DE RISCO (APR)")
-        st.checkbox("USO DE EPIS OBRIGATÓRIOS")
-        st.checkbox("ÁREA ISOLADA E SINALIZADA")
-        st.selectbox("NÍVEL DE RISCO", ["BAIXO", "MÉDIO", "ALTO"])
-        if st.button("FINALIZAR APR"):
-            st.success("APR REGISTRADA!")
+    with aba3:
+        st.subheader("Análise Preliminar de Risco (APR)")
+        st.checkbox("Uso de EPIs obrigatórios")
+        st.checkbox("Área isolada e sinalizada")
+        st.selectbox("Nível de risco", ["Baixo", "Médio", "Alto"])
+        if st.button("Finalizar APR"):
+            st.success("APR registrada!")
 
-    with ABA4:
-        if st.button("SAIR DO SISTEMA"):
-            st.session_state.LOGADO = False
+    with aba4:
+        if st.button("Sair do Sistema"):
+            st.session_state.logado = False
             st.rerun()
-        st.subheader("ADMINISTRAÇÃO")
+        st.subheader("Administração")
+        # Lógica de admin existente...
