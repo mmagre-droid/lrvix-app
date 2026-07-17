@@ -71,17 +71,16 @@ if not st.session_state.logado:
                 st.success("Cadastro realizado!")
 
 else:
-    # --- BOTÃO DE SAIR NA BARRA LATERAL ---
+    # --- BARRA LATERAL ---
     with st.sidebar:
         st.write(f"👤 Usuário: {st.session_state.nome_tecnico}")
         if st.button("SAIR DO SISTEMA"):
             st.session_state.logado = False
             st.rerun()
 
-    # --- ÁREA LOGADA COM ABAS ---
     st.success(f"Logado como: {st.session_state.nome_tecnico} ({st.session_state.perfil})")
     
-    aba1, aba2, aba3, aba4 = st.tabs(["📝 Formulário", "📊 Produtividade", "⚠️ APR", "⚙️ Admin"])
+    aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "⚙️ ADMIN"])
 
     with aba1:
         with st.form("form_atendimento", clear_on_submit=True):
@@ -120,31 +119,45 @@ else:
             st.info("Nenhum atendimento registrado.")
 
     with aba3:
-        st.subheader("⚠️ Análise Preliminar de Risco (APR)")
+        st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+        st.info("Trabalho em Altura com Risco Elétrico[cite: 1]")
+        st.write(f"**Equipe (Técnico):** {st.session_state.nome_tecnico}")
+        
         with st.form("form_apr", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
                 data_atividade = st.date_input("Data da Atividade")
-                placa_veiculo = st.text_input("Placa do Veículo")
                 local_atividade = st.text_input("Local da Atividade")
             with col2:
-                area_sinalizada = st.checkbox("Área Sinalizada")
-                uso_cinto = st.checkbox("Uso de Cinto")
-                uso_capacete = st.checkbox("Uso de Capacete")
-                verificacao_geral = st.checkbox("Verificação Geral")
-                responsavel = st.checkbox("Responsável")
+                placa_veiculo = st.text_input("Placa do Veículo")
             
-            if st.form_submit_button("Registrar APR"):
+            st.divider()
+            st.write("### ✅ CHECKLIST DE EPIs E EPCs[cite: 1]")
+            c1, c2 = st.columns(2)
+            with c1:
+                uso_cinto = st.checkbox("Cinto de Segurança (Inspeção OK)[cite: 1]")
+                talabarte = st.checkbox("Talabarte Duplo (Inspeção OK)[cite: 1]")
+                luvas = st.checkbox("Luvas Isolantes (Teste de ar OK)[cite: 1]")
+            with col2:
+                uso_capacete = st.checkbox("Capacete Classe B (Validade OK)[cite: 1]")
+                area_sinalizada = st.checkbox("Sinalização da área inferior (EPC)[cite: 1]")
+                verificacao_geral = st.checkbox("Verificação Geral concluída[cite: 1]")
+            
+            st.divider()
+            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO (SE HOUVER)[cite: 1]", 
+                                              help="Caso o serviço seja interrompido por condições inseguras, descreva o motivo e a ação corretiva[cite: 1].")
+            
+            if st.form_submit_button("REGISTRAR APR"):
                 try:
                     supabase.table("APR").insert({
                         "data_atividade": str(data_atividade),
-                        "placa_veiculo": placa_veiculo,
                         "local_atividade": local_atividade,
-                        "area_sinalizada": area_sinalizada,
+                        "equipe": st.session_state.nome_tecnico,
+                        "placa_veiculo": placa_veiculo,
                         "uso_cinto": uso_cinto,
                         "uso_capacete": uso_capacete,
-                        "verificacao_geral": verificacao_geral,
-                        "responsavel": responsavel,
+                        "area_sinalizada": area_sinalizada,
+                        "motivo_paralisacao": motivo_paralisacao,
                         "perfil": st.session_state.perfil
                     }).execute()
                     st.success("APR registrada com sucesso!")
