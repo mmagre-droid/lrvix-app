@@ -89,7 +89,7 @@ else:
             with c1:
                 data_execucao = st.date_input("DATA DA EXECUÇÃO")
                 cliente = st.text_input("NOME DO CLIENTE")
-                endereco = st.text_input("Endereço")
+                endereco = st.text_input("ENDEREÇO")
             with c2:
                 protocolo = st.text_input("PROTOCOLO")
                 mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
