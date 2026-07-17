@@ -120,7 +120,7 @@ else:
 
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
-        st.info("Trabalho em Altura com Risco Elétrico[cite: 1]")
+        st.info("Trabalho em Altura com Risco Elétrico")
         st.write(f"**Equipe (Técnico):** {st.session_state.nome_tecnico}")
         
         with st.form("form_apr", clear_on_submit=True):
