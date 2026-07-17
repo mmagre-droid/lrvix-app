@@ -102,7 +102,7 @@ else:
                 if foto_arquivo:
                     try:
                         caminho = f"fotos/{foto_arquivo.name}"
-                        supabase.storage.from_("fotos").upload(caminho, foto_arquivo.getvalue())
+                        supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_arquivo.getvalue())
                         url_foto = caminho
                     except Exception as e:
                         st.error(f"Erro ao subir foto: {e}")
