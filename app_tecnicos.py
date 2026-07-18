@@ -124,7 +124,7 @@ else:
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
-        # Campos de entrada
+        # Estrutura com colunas para ficar visualmente organizado
         col1, col2 = st.columns(2)
         with col1:
             data_atividade = st.date_input("Data da Atividade")
@@ -132,19 +132,23 @@ else:
         with col2:
             placa_veiculo = st.text_input("Placa do Veículo")
         
-        uso_cinto = st.checkbox("Cinto de Segurança")
-        uso_capacete = st.checkbox("Capacete Classe B")
-        area_sinalizada = st.checkbox("Sinalização da área")
-        verificacao_geral = st.checkbox("Verificação Geral concluída")
-        houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
+        # Checklist
+        c1, c2 = st.columns(2)
+        with c1:
+            uso_cinto = st.checkbox("Cinto de Segurança")
+            uso_capacete = st.checkbox("Capacete Classe B")
+        with c2:
+            area_sinalizada = st.checkbox("Sinalização da área")
+            verificacao_geral = st.checkbox("Verificação Geral")
         
+        st.divider()
+        houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
         foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
         motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
         
-        # BOTÃO SIMPLES (Sem o form)
-        if st.button("REGISTRAR APR SEM FORM"):
-            st.write("DEBUG: Botão clicado!")
-            
+        # AÇÃO DE REGISTRO
+        if st.button("REGISTRAR APR"):
+            # Lógica de upload e salvamento (que já comprovamos que funciona)
             url_foto = ""
             if foto_paralisacao:
                 try:
@@ -152,30 +156,35 @@ else:
                     caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
                     supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
                     url_foto = caminho
-                    st.write("DEBUG: Foto salva no storage!")
                 except Exception as e:
                     st.error(f"Erro no upload: {e}")
             
-            try:
-                supabase.table("APR").insert({
-                    "data_atividade": str(data_atividade),
-                    "local_atividade": local_atividade,
-                    "equipe": st.session_state.nome_tecnico,
-                    "placa_veiculo": placa_veiculo,
-                    "uso_cinto": uso_cinto,
-                    "uso_capacete": uso_capacete,
-                    "area_sinalizada": area_sinalizada,
-                    "houve_paralisacao": houve_paralisacao,
-                    "motivo_paralisacao": motivo_paralisacao,
-                    "verificacao_geral": verificacao_geral,
-                    "responsavel": st.session_state.nome_tecnico,
-                    "foto_paralisacao": url_foto,
-                    "perfil": st.session_state.perfil
-                }).execute()
-                st.success("APR registrada com sucesso!")
-            except Exception as e:
-                st.error(f"Erro ao salvar no banco: {e}")
-    with aba4:
+            # Validação
+            if houve_paralisacao and not url_foto:
+                st.error("Atenção: A foto é obrigatória para serviços paralisados!")
+            else:
+                try:
+                    supabase.table("APR").insert({
+                        "data_atividade": str(data_atividade),
+                        "local_atividade": local_atividade,
+                        "equipe": st.session_state.nome_tecnico,
+                        "placa_veiculo": placa_veiculo,
+                        "uso_cinto": uso_cinto,
+                        "uso_capacete": uso_capacete,
+                        "area_sinalizada": area_sinalizada,
+                        "houve_paralisacao": houve_paralisacao,
+                        "motivo_paralisacao": motivo_paralisacao,
+                        "verificacao_geral": verificacao_geral,
+                        "responsavel": st.session_state.nome_tecnico,
+                        "foto_paralisacao": url_foto,
+                        "perfil": st.session_state.perfil
+                    }).execute()
+                    st.success("APR registrada com sucesso!")
+                    # Opcional: st.rerun() para limpar os campos após sucesso
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
+                    
+        with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
         
