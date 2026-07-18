@@ -151,7 +151,7 @@ else:
             st.error(f"Erro ao buscar: {e}")
             
     with aba3:
-    st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+        st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
     
     # --- FORMULÁRIO DE PREENCHIMENTO ---
     # Certifique-se de que estas variáveis correspondam exatamente aos seus campos
