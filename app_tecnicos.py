@@ -160,6 +160,13 @@ else:
                     st.error("Erro: A foto é obrigatória quando o serviço é paralisado!")
                 else:
                     try:
+                        # --- SOLUÇÃO DO ERRO CAMINHO_FOTO AQUI ---
+                        caminho_foto = ""
+                        if foto_paralisacao:
+                            caminho_foto = f"fotos/{foto_paralisacao.name}"
+                            supabase.storage.from_("fotos_atendimentos").upload(caminho_foto, foto_paralisacao.getvalue())
+                        # -----------------------------------------
+
                         # Logica simplificada de inserção
                         supabase.table("APR").insert({
                             "data_atividade": str(data_atividade),
