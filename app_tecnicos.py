@@ -141,7 +141,7 @@ else:
             verificacao_geral = st.checkbox("Verificação Geral")           
             
         with c2:                     
-            animais_peconhetos = st.checkbox("Animais Peçonhentos, ["Não", "Sim"]")
+            animais_peconhetos = st.checkbox("Animais Peçonhentos", ["Não", "Sim"])
             chuva = st.checkbox("Chuva", ["Não", "Sim"])
             poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
             integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
