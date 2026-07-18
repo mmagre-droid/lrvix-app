@@ -1,5 +1,6 @@
 import streamlit as st
 from supabase import create_client
+import time
 
 # --- CONFIGURAÇÃO ---
 url = st.secrets["SUPABASE_URL"]
@@ -101,7 +102,9 @@ else:
                 url_foto = ""
                 if foto_arquivo:
                     try:
-                        caminho = f"fotos/{foto_arquivo.name}"
+                        # Geração de nome único
+                        timestamp = int(time.time())
+                        caminho = f"fotos/{timestamp}_{foto_arquivo.name}"
                         supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_arquivo.getvalue())
                         url_foto = caminho
                     except Exception as e:
@@ -144,7 +147,6 @@ else:
                 verificacao_geral = st.checkbox("Verificação Geral concluída")
             
             st.divider()
-            # --- NOVA LÓGICA DE PARALISAÇÃO ---
             houve_paralisacao = st.checkbox("Houve interrupção das atividades por condições inseguras?")
             
             foto_paralisacao = None
@@ -155,19 +157,16 @@ else:
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS")
             
             if st.form_submit_button("REGISTRAR APR"):
-                # Validação da obrigatoriedade da foto
                 if houve_paralisacao and not foto_paralisacao:
                     st.error("Erro: A foto é obrigatória quando o serviço é paralisado!")
                 else:
                     try:
-                        # --- SOLUÇÃO DO ERRO CAMINHO_FOTO AQUI ---
                         caminho_foto = ""
                         if foto_paralisacao:
-                            caminho_foto = f"fotos/{foto_paralisacao.name}"                            
+                            timestamp = int(time.time())
+                            caminho_foto = f"fotos/{timestamp}_{foto_paralisacao.name}"
                             supabase.storage.from_("fotos_atendimentos").upload(caminho_foto, foto_paralisacao.getvalue())
-                        # -----------------------------------------
 
-                        # Logica simplificada de inserção
                         supabase.table("APR").insert({
                             "data_atividade": str(data_atividade),
                             "local_atividade": local_atividade,
