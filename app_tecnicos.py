@@ -135,13 +135,14 @@ else:
         c1, c2 = st.columns(2)
         with c1:
             uso_cinto = st.checkbox("Cinto de Segurança")
-            uso_capacete = st.checkbox("Capacete Classe B")
+            uso_capacete = st.checkbox("Capacete De Proteção")
             amarracao_escada = st.checkbox("Amarração da Escada")
-            chuva = st.checkbox("Chuva")
-            animais_peconhetos = st.checkbox("Animais Peçonhentos")
-        with c2:
             area_sinalizada = st.checkbox("Sinalização da área")
-            verificacao_geral = st.checkbox("Verificação Geral")
+            verificacao_geral = st.checkbox("Verificação Geral")           
+            
+        with c2:                     
+            animais_peconhetos = st.checkbox("Animais Peçonhentos, ["Não", "Sim"]")
+            chuva = st.checkbox("Chuva", ["Não", "Sim"])
             poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
             integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
         
