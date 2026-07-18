@@ -136,11 +136,11 @@ else:
             uso_cinto = st.checkbox("Cinto de Segurança")
             uso_capacete = st.checkbox("Capacete Classe B")
             amarracao_escada = st.checkbox("Amarração da Escada")
-            chuva = st.checkbox("Chuva")
-            animais_peconhetos = st.checkbox("Animais Peçonhentos")
-        with c2:
             area_sinalizada = st.checkbox("Sinalização da área")
-            verificacao_geral = st.checkbox("Verificação Geral")
+            verificacao_geral = st.checkbox("Verificação Geral")            
+        with c2:
+            chuva = st.selectbox("Chuva",["Não", "Sim"])
+            animais_peconhetos = st.selectbox("Animais Peçonhentos", ["Não", "Sim"])         
             poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
             integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
         
