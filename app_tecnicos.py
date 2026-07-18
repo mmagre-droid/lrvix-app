@@ -38,13 +38,14 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
             "mercado": mercado,
             "tipo_servico": tipo_servico,
             "observacao": observacao,
-            "foto": foto_url
+            "foto": foto_url,
+            "responsavel": st.session_state.nome_tecnico  # Agora com "ns"
         }).execute()
         return True
     except Exception as e:
         st.error(f"Erro ao salvar: {e}")
         return False
-
+        
 # --- INTERFACE ---
 if not st.session_state.logado:
     tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
