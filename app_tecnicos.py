@@ -174,12 +174,17 @@ else:
                         "uso_cinto": uso_cinto,
                         "uso_capacete": uso_capacete,
                         "amarracao_escada": amarracao_escada,
-                        "chuva": chuva,
-                        "animais_peconhetos": animais_peconhetos,
                         "area_sinalizada": area_sinalizada,
                         "verificacao_geral": verificacao_geral,
-                        "poste_energizado": poste_energizado,
-                        "integridade_poste": integridade_poste,
+                        
+                        # Conversão dos selects para booleano:
+                        "animais_peconhetos": True if animais_peconhetos == "Sim" else False,
+                        "chuva": True if chuva == "Sim" else False,
+                        "poste_energizado": True if poste_energizado == "Sim" else False,
+                        
+                        # Para este, se a coluna for texto, mantenha como está. Se for boolean, converta:
+                        "integridade_poste": integridade_poste, 
+                        
                         "houve_paralisacao": houve_paralisacao,
                         "motivo_paralisacao": motivo_paralisacao,
                         "responsavel": st.session_state.nome_tecnico,
@@ -189,6 +194,8 @@ else:
                     st.success("APR registrada com sucesso!")
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
+                    
+                    
     with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
