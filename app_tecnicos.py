@@ -151,18 +151,21 @@ else:
             st.error(f"Erro ao buscar: {e}")
             
     with aba3:
-            st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+    st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
     
-    # ... (aqui fica o seu formulário de preenchimento existente) ...
-    # Exemplo: integridade_poste = st.selectbox(...)
-    # ... (seu código de inputs continua aqui) ...
-
+    # --- FORMULÁRIO DE PREENCHIMENTO ---
+    # Certifique-se de que estas variáveis correspondam exatamente aos seus campos
+    integridade_poste = st.selectbox("Integridade do Poste:", ["Bom", "Regular", "Ruim"])
+    houve_paralisacao = st.radio("Houve paralisação?", ["Sim", "Não"])
+    motivo_paralisacao = st.text_input("Motivo da paralisação (se houver):")
+    # Nota: certifique-se de que 'url_foto' esteja sendo definida anteriormente no seu código
+    
     if st.button("Salvar APR"):
         try:
-            # Geração do código único
+            # 1. Geração do código único
             codigo_unico = gerar_codigo_apr()
             
-            # Salvando no banco
+            # 2. Inserção no Supabase
             supabase.table("APR").insert({
                 "integridade_poste": integridade_poste,
                 "houve_paralisacao": houve_paralisacao,
@@ -178,10 +181,11 @@ else:
         except Exception as e:
             st.error(f"Erro ao salvar: {e}")
 
+    # --- BUSCA E PDF ---
     st.divider()
     st.subheader("🔍 Buscar e Exportar APR")
     
-    busca_codigo = st.text_input("Digite o código da APR para baixar:")
+    busca_codigo = st.text_input("Digite o código da APR para buscar:")
     
     if busca_codigo:
         resultado = supabase.table("APR").select("*").eq("codigo_apr", busca_codigo).execute()
@@ -190,14 +194,16 @@ else:
             apr_data = resultado.data[0]
             st.write("Dados encontrados:", apr_data)
             
-            # Lógica para PDF
+            # Lógica para PDF (requer: pip install fpdf)
             from fpdf import FPDF
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font("Arial", size=12)
             pdf.cell(200, 10, txt=f"Relatorio APR: {apr_data['codigo_apr']}", ln=True, align='C')
             pdf.cell(200, 10, txt=f"Tecnico: {apr_data['responsavel']}", ln=True)
+            pdf.cell(200, 10, txt=f"Integridade Poste: {apr_data['integridade_poste']}", ln=True)
             
+            # Transforma em bytes para o download
             pdf_output = pdf.output(dest='S').encode('latin-1')
             
             st.download_button(
