@@ -142,22 +142,30 @@ else:
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS")
             
             if st.form_submit_button("REGISTRAR APR"):
+                # --- DIAGNÓSTICO ---
+                st.write(f"DEBUG: Foto enviada no uploader? {'Sim' if foto_paralisacao else 'Não'}")
+                
                 url_foto = ""
-                # Lógica idêntica à que funciona na aba atendimento
                 if foto_paralisacao:
                     try:
                         timestamp = int(time.time())
                         caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
+                        st.write("DEBUG: Iniciando upload para o Supabase...")
+                        
                         supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
+                        
                         url_foto = caminho
+                        st.write(f"DEBUG: Upload concluído. Caminho: {url_foto}")
                     except Exception as e:
-                        st.error(f"Erro ao subir foto: {e}")
+                        st.error(f"ERRO CRÍTICO NO UPLOAD: {e}")
                 
-                # Validação de obrigatoriedade caso paralisado
+                # --- INSERÇÃO ---
                 if houve_paralisacao and not url_foto:
                     st.error("Erro: A foto é obrigatória quando o serviço é paralisado!")
                 else:
                     try:
+                        st.write("DEBUG: Tentando inserir no banco de dados...")
+                        
                         supabase.table("APR").insert({
                             "data_atividade": str(data_atividade),
                             "local_atividade": local_atividade,
@@ -175,7 +183,7 @@ else:
                         }).execute()
                         st.success("APR registrada com sucesso!")
                     except Exception as e:
-                        st.error(f"Erro ao salvar no banco: {e}")                        
+                        st.error(f"ERRO CRÍTICO NO BANCO: {e}")                        
         with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
