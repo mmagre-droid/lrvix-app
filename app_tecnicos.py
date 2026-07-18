@@ -117,9 +117,6 @@ else:
     with aba2:
         st.subheader("📊 Meus Atendimentos (Internos e Externos)")
         
-        # Filtramos por:
-        # 1. Responsável = nome do técnico logado
-        # 2. Tipo de serviço = apenas INTERNO ou EXTERNO
         try:
             atendimentos = supabase.table("ATENDIMENTO")\
                 .select("*")\
@@ -128,12 +125,23 @@ else:
                 .execute()
                 
             if atendimentos.data:
-                st.dataframe(atendimentos.data, use_container_width=True)
+                # Criamos um DataFrame e filtramos apenas as colunas que você quer mostrar
+                import pandas as pd
+                df = pd.DataFrame(atendimentos.data)
+                
+                # Lista das colunas que você deseja ocultar
+                colunas_para_ocultar = ['id', 'created_at', 'responsavel']
+                
+                # Seleciona apenas as colunas que NÃO estão na lista de ocultação
+                df_exibicao = df.drop(columns=[c for c in colunas_para_ocultar if c in df.columns])
+                
+                # Exibe o dataframe filtrado
+                st.dataframe(df_exibicao, use_container_width=True)
             else:
-                st.info("Você não possui atendimentos internos ou externos registrados.")
+                st.info("Você ainda não possui atendimentos internos ou externos registrados.")
         except Exception as e:
-            st.error(f"Erro ao buscar atendimentos: {e}")
-
+            st.error(f"Erro ao buscar: {e}")
+            
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
