@@ -151,79 +151,63 @@ else:
             st.error(f"Erro ao buscar: {e}")
             
     with aba3:
-        st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            data_atividade = st.date_input("Data da Atividade")
-            local_atividade = st.text_input("Local da Atividade")
-        with col2:
-            placa_veiculo = st.text_input("Placa do Veículo")
-        
-        st.write("### ✅ CHECKLIST DETALHADO")
-        c1, c2 = st.columns(2)
-        with c1:
-            uso_cinto = st.checkbox("Cinto de Segurança")
-            uso_capacete = st.checkbox("Capacete De Proteção")
-            amarracao_escada = st.checkbox("Amarração da Escada")
-            area_sinalizada = st.checkbox("Sinalização da área")
-            verificacao_geral = st.checkbox("Verificação Geral")           
+    st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+    
+    # ... (aqui fica o seu formulário de preenchimento existente) ...
+    # Exemplo: integridade_poste = st.selectbox(...)
+    # ... (seu código de inputs continua aqui) ...
+
+    if st.button("Salvar APR"):
+        try:
+            # Geração do código único
+            codigo_unico = gerar_codigo_apr()
             
-        with c2:                     
-            animais_peconhetos = st.selectbox("Animais Peçonhentos", ["Não", "Sim"])
-            chuva = st.selectbox("Chuva", ["Não", "Sim"])
-            poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
-            integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
-        
-        st.divider()
-        houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
-        foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
-        motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
-        
-        if st.button("REGISTRAR APR"):
-            url_foto = ""
-            if foto_paralisacao:
-                try:
-                    timestamp = int(time.time())
-                    caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
-                    supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
-                    url_foto = caminho
-                except Exception as e:
-                    st.error(f"Erro no upload: {e}")
+            # Salvando no banco
+            supabase.table("APR").insert({
+                "integridade_poste": integridade_poste,
+                "houve_paralisacao": houve_paralisacao,
+                "motivo_paralisacao": motivo_paralisacao,
+                "responsavel": st.session_state.nome_tecnico,
+                "foto_paralisacao": url_foto,
+                "perfil": st.session_state.perfil,
+                "codigo_apr": codigo_unico,
+            }).execute()
             
-            if houve_paralisacao and not url_foto:
-                st.error("Atenção: A foto é obrigatória para serviços paralisados!")
-            else:
-                try:
-                    supabase.table("APR").insert({
-                        "data_atividade": str(data_atividade),
-                        "local_atividade": local_atividade,
-                        "equipe": st.session_state.nome_tecnico,
-                        "placa_veiculo": placa_veiculo,
-                        "uso_cinto": uso_cinto,
-                        "uso_capacete": uso_capacete,
-                        "amarracao_escada": amarracao_escada,
-                        "area_sinalizada": area_sinalizada,
-                        "verificacao_geral": verificacao_geral,
-                        
-                        # Conversão dos selects para booleano:
-                        "animais_peconhetos": True if animais_peconhetos == "Sim" else False,
-                        "chuva": True if chuva == "Sim" else False,
-                        "poste_energizado": True if poste_energizado == "Sim" else False,
-                        
-                        # Para este, se a coluna for texto, mantenha como está. Se for boolean, converta:
-                        "integridade_poste": integridade_poste, 
-                        
-                        "houve_paralisacao": houve_paralisacao,
-                        "motivo_paralisacao": motivo_paralisacao,
-                        "responsavel": st.session_state.nome_tecnico,
-                        "foto_paralisacao": url_foto,
-                        "perfil": st.session_state.perfil
-                    }).execute()
-                    st.success("APR registrada com sucesso!")
-                except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
-                    
+            st.success(f"APR registrada com sucesso! Código: {codigo_unico}")
+            
+        except Exception as e:
+            st.error(f"Erro ao salvar: {e}")
+
+    st.divider()
+    st.subheader("🔍 Buscar e Exportar APR")
+    
+    busca_codigo = st.text_input("Digite o código da APR para baixar:")
+    
+    if busca_codigo:
+        resultado = supabase.table("APR").select("*").eq("codigo_apr", busca_codigo).execute()
+        
+        if resultado.data:
+            apr_data = resultado.data[0]
+            st.write("Dados encontrados:", apr_data)
+            
+            # Lógica para PDF
+            from fpdf import FPDF
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=12)
+            pdf.cell(200, 10, txt=f"Relatorio APR: {apr_data['codigo_apr']}", ln=True, align='C')
+            pdf.cell(200, 10, txt=f"Tecnico: {apr_data['responsavel']}", ln=True)
+            
+            pdf_output = pdf.output(dest='S').encode('latin-1')
+            
+            st.download_button(
+                label="📥 Baixar PDF da APR",
+                data=pdf_output,
+                file_name=f"APR_{busca_codigo}.pdf",
+                mime="application/pdf"
+            )
+        else:
+            st.warning("Código não encontrado.")                    
                     
     with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
