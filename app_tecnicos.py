@@ -142,33 +142,41 @@ else:
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS")
             
             if st.form_submit_button("REGISTRAR APR"):
-                if houve_paralisacao and not foto_paralisacao:
+                url_foto = ""
+                # Lógica idêntica à que funciona na aba atendimento
+                if foto_paralisacao:
+                    try:
+                        timestamp = int(time.time())
+                        caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
+                        supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
+                        url_foto = caminho
+                    except Exception as e:
+                        st.error(f"Erro ao subir foto: {e}")
+                
+                # Validação de obrigatoriedade caso paralisado
+                if houve_paralisacao and not url_foto:
                     st.error("Erro: A foto é obrigatória quando o serviço é paralisado!")
                 else:
-                    caminho_foto = ""
-                    # Lógica igual à aba atendimento:
-                    if foto_paralisacao:
-                        try:
-                            timestamp = int(time.time())
-                            caminho_foto = f"fotos/{timestamp}_{foto_paralisacao.name}"
-                            supabase.storage.from_("fotos_atendimentos").upload(caminho_foto, foto_paralisacao.getvalue())
-                        except Exception as e:
-                            st.error(f"Erro ao subir foto: {e}")
-                    
-                    # Inserção no banco
                     try:
                         supabase.table("APR").insert({
                             "data_atividade": str(data_atividade),
                             "local_atividade": local_atividade,
                             "equipe": st.session_state.nome_tecnico,
                             "placa_veiculo": placa_veiculo,
-                            # ... (seus outros campos)
-                            "foto_paralisacao": caminho_foto,
+                            "uso_cinto": uso_cinto,
+                            "uso_capacete": uso_capacete,
+                            "area_sinalizada": area_sinalizada,
+                            "houve_paralisacao": houve_paralisacao,
+                            "motivo_paralisacao": motivo_paralisacao,
+                            "verificacao_geral": verificacao_geral,
+                            "responsavel": st.session_state.nome_tecnico,
+                            "foto_paralisacao": url_foto,
                             "perfil": st.session_state.perfil
                         }).execute()
                         st.success("APR registrada com sucesso!")
                     except Exception as e:
-                        st.error(f"Erro ao salvar no banco: {e}")    with aba4:
+                        st.error(f"Erro ao salvar no banco: {e}")                        
+        with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
         
