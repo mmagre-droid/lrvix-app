@@ -192,6 +192,7 @@ else:
                     st.success("APR registrada com sucesso!")
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
+                    
     with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
