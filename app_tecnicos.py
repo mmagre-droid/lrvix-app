@@ -164,6 +164,7 @@ else:
                         caminho_foto = ""
                         if foto_paralisacao:
                             caminho_foto = f"fotos/{foto_paralisacao.name}"
+                            st.write(f"DEBUG: O valor de caminho_foto é: '{caminho_foto}'")
                             supabase.storage.from_("fotos_atendimentos").upload(caminho_foto, foto_paralisacao.getvalue())
                         # -----------------------------------------
 
@@ -214,3 +215,4 @@ else:
                     st.rerun()
         elif senha_admin:
             st.error("SENHA INCORRETA!")
+
