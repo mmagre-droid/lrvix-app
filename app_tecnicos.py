@@ -71,6 +71,7 @@ if not st.session_state.logado:
                 st.success("Cadastro realizado!")
 
 else:
+    # --- BARRA LATERAL ---
     with st.sidebar:
         st.write(f"👤 Usuário: {st.session_state.nome_tecnico}")
         if st.button("SAIR DO SISTEMA"):
@@ -119,6 +120,9 @@ else:
 
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+        st.info("Trabalho em Altura com Risco Elétrico")
+        st.write(f"**Equipe (Técnico):** {st.session_state.nome_tecnico}")
+        
         with st.form("form_apr", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
@@ -127,25 +131,43 @@ else:
             with col2:
                 placa_veiculo = st.text_input("Placa do Veículo")
             
-            uso_cinto = st.checkbox("Cinto de Segurança (Inspeção OK)")
-            uso_capacete = st.checkbox("Capacete Classe B (Validade OK)")
-            area_sinalizada = st.checkbox("Sinalização da área inferior (EPC)")
-            verificacao_geral = st.checkbox("Verificação Geral concluída")
+            st.divider()
+            st.write("### ✅ CHECKLIST DE EPIs E EPCs")
+            c1, c2 = st.columns(2)
+            with c1:
+                uso_cinto = st.checkbox("Cinto de Segurança (Inspeção OK)")
+                talabarte = st.checkbox("Talabarte Duplo (Inspeção OK)")
+                luvas = st.checkbox("Luvas Isolantes (Teste de ar OK)")
+            with c2:
+                uso_capacete = st.checkbox("Capacete Classe B (Validade OK)")
+                area_sinalizada = st.checkbox("Sinalização da área inferior (EPC)")
+                verificacao_geral = st.checkbox("Verificação Geral concluída")
             
+            st.divider()
+            # --- NOVA LÓGICA DE PARALISAÇÃO ---
             houve_paralisacao = st.checkbox("Houve interrupção das atividades por condições inseguras?")
-            foto_paralisacao = st.file_uploader("📸 Foto da ocorrência (Obrigatório se paralisado)", type=['jpg', 'png', 'jpeg'])
-            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
+            
+            foto_paralisacao = None
+            if houve_paralisacao:
+                st.warning("⚠️ Devido à interrupção, o envio de uma foto do local é obrigatório.")
+                foto_paralisacao = st.file_uploader("📸 Foto da ocorrência (Obrigatório)", type=['jpg', 'png', 'jpeg'])
+            
+            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS")
             
             if st.form_submit_button("REGISTRAR APR"):
+                # Validação da obrigatoriedade da foto
                 if houve_paralisacao and not foto_paralisacao:
                     st.error("Erro: A foto é obrigatória quando o serviço é paralisado!")
                 else:
-                    caminho_foto = "" 
                     try:
+                        # --- SOLUÇÃO DO ERRO CAMINHO_FOTO AQUI ---
+                        caminho_foto = ""
                         if foto_paralisacao:
-                            caminho_foto = f"fotos/{foto_paralisacao.name}"
+                            caminho_foto = f"fotos/{foto_paralisacao.name}"                            
                             supabase.storage.from_("fotos_atendimentos").upload(caminho_foto, foto_paralisacao.getvalue())
-                        
+                        # -----------------------------------------
+
+                        # Logica simplificada de inserção
                         supabase.table("APR").insert({
                             "data_atividade": str(data_atividade),
                             "local_atividade": local_atividade,
@@ -163,16 +185,32 @@ else:
                         }).execute()
                         st.success("APR registrada com sucesso!")
                     except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
+                        st.error(f"Erro ao salvar APR: {e}")
 
     with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+        
         if senha_admin == "123456":
             usuarios = supabase.table("TECNICOS").select("*").execute()
-            edited_data = st.data_editor(usuarios.data, column_config={"perfil": st.column_config.SelectboxColumn("PERFIL", options=["Técnico", "Assistente", "Administrador"], required=True)})
+            
+            edited_data = st.data_editor(usuarios.data, column_config={
+                "perfil": st.column_config.SelectboxColumn(
+                    "PERFIL",
+                    options=["Técnico", "Assistente", "Administrador"],
+                    required=True,
+                )
+            })
+            
             if st.button("SALVAR PERFIS"):
+                sucesso = True
                 for row in edited_data:
-                    supabase.table("TECNICOS").update({"perfil": row["perfil"]}).eq("cpf", row["cpf"]).execute()
-                st.success("PERFIS ATUALIZADOS!")
-                st.rerun()
+                    try:
+                        supabase.table("TECNICOS").update({"perfil": row["perfil"]}).eq("cpf", row["cpf"]).execute()
+                    except:
+                        sucesso = False
+                if sucesso:
+                    st.success("PERFIS ATUALIZADOS!")
+                    st.rerun()
+        elif senha_admin:
+            st.error("SENHA INCORRETA!")
