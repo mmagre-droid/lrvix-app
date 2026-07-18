@@ -1,6 +1,13 @@
 import streamlit as st
 from supabase import create_client
 import time
+import random
+import string
+
+def gerar_codigo_apr():
+    letras = ''.join(random.choices(string.ascii_uppercase, k=4))
+    numeros = ''.join(random.choices(string.digits, k=3))
+    return f"{letras}{numeros}"
 
 # --- CONFIGURAÇÃO ---
 url = st.secrets["SUPABASE_URL"]
@@ -45,7 +52,7 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
     except Exception as e:
         st.error(f"Erro ao salvar: {e}")
         return False
-        
+
 # --- INTERFACE ---
 if not st.session_state.logado:
     tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
@@ -114,7 +121,7 @@ else:
                 if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto):
                     st.success("Atendimento registrado com sucesso!")
 
-    with aba2:
+   with aba2:
         st.subheader("📊 Meus Atendimentos (Internos e Externos)")
         
         try:
@@ -130,10 +137,7 @@ else:
                 colunas_para_ocultar = ['id', 'created_at', 'responsavel']
                 df_exibicao = df.drop(columns=[c for c in colunas_para_ocultar if c in df.columns])
                 
-                # --- AQUI VOCÊ EXIBE A TABELA ---
-                st.dataframe(df_exibicao, use_container_width=True)
-
-                # --- AQUI VOCÊ COLA O NOVO CÓDIGO DO BOTÃO ---
+                
                 # Gera um CSV, que não precisa de bibliotecas extras
 
                 csv = df_exibicao.to_csv(index=False).encode('utf-8')                
@@ -143,15 +147,15 @@ else:
                     file_name="atendimentos.csv",
                     mime="text/csv"
                 )
-                # ---------------------------------------------
 
             else:
                 st.info("Você ainda não possui atendimentos internos ou externos registrados.")
         except Exception as e:
             st.error(f"Erro ao buscar: {e}")
-            
+
     with aba3:
-        st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+            
+            st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
     
     # --- FORMULÁRIO DE PREENCHIMENTO ---
     # Certifique-se de que estas variáveis correspondam exatamente aos seus campos
@@ -213,7 +217,8 @@ else:
                 mime="application/pdf"
             )
         else:
-            st.warning("Código não encontrado.")                    
+            st.warning("Código não encontrado.")
+
                     
     with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
