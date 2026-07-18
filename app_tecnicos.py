@@ -68,7 +68,7 @@ if not st.session_state.logado:
                 st.rerun()
             else:
                 st.error("CPF ou Senha incorretos.")
-     with tab2:
+    with tab2:
         nome = st.text_input("Nome Completo")
         cpf = st.text_input("CPF (somente números)")
         email = st.text_input("E-mail")
@@ -121,7 +121,7 @@ else:
                 if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto):
                     st.success("Atendimento registrado com sucesso!")
 
-   with aba2:
+    with aba2:
         st.subheader("📊 Meus Atendimentos (Internos e Externos)")
         
         try:
