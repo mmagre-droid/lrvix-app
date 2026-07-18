@@ -149,24 +149,25 @@ else:
             st.divider()
             houve_paralisacao = st.checkbox("Houve interrupção das atividades por condições inseguras?")
             
-            foto_paralisacao = None
-            if houve_paralisacao:
-                st.warning("⚠️ Devido à interrupção, o envio de uma foto do local é obrigatório.")
-                foto_paralisacao = st.file_uploader("📸 Foto da ocorrência (Obrigatório)", type=['jpg', 'png', 'jpeg'])
+            # ATENÇÃO: O file_uploader deve estar fora da condicional IF, 
+            # ou ser capturado corretamente pelo form
+            foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
             
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS")
             
             if st.form_submit_button("REGISTRAR APR"):
+                # Validação
                 if houve_paralisacao and not foto_paralisacao:
                     st.error("Erro: A foto é obrigatória quando o serviço é paralisado!")
                 else:
+                    caminho_foto = ""
                     try:
-                        caminho_foto = ""
                         if foto_paralisacao:
                             timestamp = int(time.time())
                             caminho_foto = f"fotos/{timestamp}_{foto_paralisacao.name}"
                             supabase.storage.from_("fotos_atendimentos").upload(caminho_foto, foto_paralisacao.getvalue())
-
+                        
+                        # Inserção
                         supabase.table("APR").insert({
                             "data_atividade": str(data_atividade),
                             "local_atividade": local_atividade,
@@ -179,7 +180,7 @@ else:
                             "motivo_paralisacao": motivo_paralisacao,
                             "verificacao_geral": verificacao_geral,
                             "responsavel": st.session_state.nome_tecnico,
-                            "foto_paralisacao": caminho_foto,
+                            "foto_paralisacao": caminho_foto, # Agora garantimos que enviamos o caminho ou string vazia
                             "perfil": st.session_state.perfil
                         }).execute()
                         st.success("APR registrada com sucesso!")
