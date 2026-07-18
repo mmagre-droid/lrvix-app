@@ -134,16 +134,14 @@ else:
                 st.dataframe(df_exibicao, use_container_width=True)
 
                 # --- AQUI VOCÊ COLA O NOVO CÓDIGO DO BOTÃO ---
-                import io
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                    df_exibicao.to_excel(writer, index=False, sheet_name='Atendimentos')
-                
+                # Gera um CSV, que não precisa de bibliotecas extras
+
+                csv = df_exibicao.to_csv(index=False).encode('utf-8')                
                 st.download_button(
-                    label="📥 Baixar tabela em Excel",
-                    data=buffer.getvalue(),
-                    file_name="atendimentos.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    label="📥 Baixar tabela em CSV",
+                    data=csv,
+                    file_name="atendimentos.csv",
+                    mime="text/csv"
                 )
                 # ---------------------------------------------
 
