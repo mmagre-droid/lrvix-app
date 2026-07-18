@@ -173,6 +173,7 @@ else:
                             "motivo_paralisacao": motivo_paralisacao,
                             "verificacao_geral": verificacao_geral,
                             "responsavel": st.session_state.nome_tecnico,
+                            "foto_paralisacao": caminho_foto,
                             "perfil": st.session_state.perfil
                         }).execute()
                         st.success("APR registrada com sucesso!")
