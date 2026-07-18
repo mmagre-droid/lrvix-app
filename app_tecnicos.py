@@ -114,12 +114,24 @@ else:
                     st.success("Atendimento registrado com sucesso!")
 
     with aba2:
-        st.subheader("Lista de Atendimentos")
-        atendimentos = supabase.table("ATENDIMENTO").select("*").execute()
-        if atendimentos.data:
-            st.dataframe(atendimentos.data, use_container_width=True)
-        else:
-            st.info("Nenhum atendimento registrado.")
+        st.subheader("📊 Meus Atendimentos (Internos e Externos)")
+        
+        # Filtramos por:
+        # 1. Responsável = nome do técnico logado
+        # 2. Tipo de serviço = apenas INTERNO ou EXTERNO
+        try:
+            atendimentos = supabase.table("ATENDIMENTO")\
+                .select("*")\
+                .eq("responsavel", st.session_state.nome_tecnico)\
+                .in_("tipo_servico", ["INTERNO", "EXTERNO"])\
+                .execute()
+                
+            if atendimentos.data:
+                st.dataframe(atendimentos.data, use_container_width=True)
+            else:
+                st.info("Você não possui atendimentos internos ou externos registrados.")
+        except Exception as e:
+            st.error(f"Erro ao buscar atendimentos: {e}")
 
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
