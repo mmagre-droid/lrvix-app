@@ -172,6 +172,7 @@ else:
                             "houve_paralisacao": houve_paralisacao,
                             "motivo_paralisacao": motivo_paralisacao,
                             "verificacao_geral": verificacao_geral,
+                            "responsavel": nome_do_responsavel,
                             "perfil": st.session_state.perfil
                         }).execute()
                         st.success("APR registrada com sucesso!")
