@@ -1,13 +1,7 @@
+Python
 import streamlit as st
 from supabase import create_client
 import time
-import random
-import string
-
-def gerar_codigo_apr():
-    letras = ''.join(random.choices(string.ascii_uppercase, k=4))
-    numeros = ''.join(random.choices(string.digits, k=3))
-    return f"{letras}{numeros}"
 
 # --- CONFIGURAÇÃO ---
 url = st.secrets["SUPABASE_URL"]
@@ -45,8 +39,7 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
             "mercado": mercado,
             "tipo_servico": tipo_servico,
             "observacao": observacao,
-            "foto": foto_url,
-            "responsavel": st.session_state.nome_tecnico  # Agora com "ns"
+            "foto": foto_url
         }).execute()
         return True
     except Exception as e:
@@ -110,7 +103,6 @@ else:
                 url_foto = ""
                 if foto_arquivo:
                     try:
-                        # Geração de nome único
                         timestamp = int(time.time())
                         caminho = f"fotos/{timestamp}_{foto_arquivo.name}"
                         supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_arquivo.getvalue())
@@ -122,104 +114,81 @@ else:
                     st.success("Atendimento registrado com sucesso!")
 
     with aba2:
-        st.subheader("📊 Meus Atendimentos (Internos e Externos)")
-        
-        try:
-            atendimentos = supabase.table("ATENDIMENTO")\
-                .select("*")\
-                .eq("responsavel", st.session_state.nome_tecnico)\
-                .in_("tipo_servico", ["INTERNO", "EXTERNO"])\
-                .execute()
-                
-            if atendimentos.data:
-                import pandas as pd
-                df = pd.DataFrame(atendimentos.data)
-                colunas_para_ocultar = ['id', 'created_at', 'responsavel']
-                df_exibicao = df.drop(columns=[c for c in colunas_para_ocultar if c in df.columns])
-                
-                
-                # Gera um CSV, que não precisa de bibliotecas extras
-
-                csv = df_exibicao.to_csv(index=False).encode('utf-8')                
-                st.download_button(
-                    label="📥 Baixar tabela em CSV",
-                    data=csv,
-                    file_name="atendimentos.csv",
-                    mime="text/csv"
-                )
-
-            else:
-                st.info("Você ainda não possui atendimentos internos ou externos registrados.")
-        except Exception as e:
-            st.error(f"Erro ao buscar: {e}")
+        st.subheader("Lista de Atendimentos")
+        atendimentos = supabase.table("ATENDIMENTO").select("*").execute()
+        if atendimentos.data:
+            st.dataframe(atendimentos.data, use_container_width=True)
+        else:
+            st.info("Nenhum atendimento registrado.")
 
     with aba3:
-            
-            st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
-    
-    # --- FORMULÁRIO DE PREENCHIMENTO ---
-    # Certifique-se de que estas variáveis correspondam exatamente aos seus campos
-    integridade_poste = st.selectbox("Integridade do Poste:", ["Bom", "Regular", "Ruim"])
-    houve_paralisacao = st.radio("Houve paralisação?", ["Sim", "Não"])
-    motivo_paralisacao = st.text_input("Motivo da paralisação (se houver):")
-    # Nota: certifique-se de que 'url_foto' esteja sendo definida anteriormente no seu código
-    
-    if st.button("Salvar APR"):
-        try:
-            # 1. Geração do código único
-            codigo_unico = gerar_codigo_apr()
-            
-            # 2. Inserção no Supabase
-            supabase.table("APR").insert({
-                "integridade_poste": integridade_poste,
-                "houve_paralisacao": houve_paralisacao,
-                "motivo_paralisacao": motivo_paralisacao,
-                "responsavel": st.session_state.nome_tecnico,
-                "foto_paralisacao": url_foto,
-                "perfil": st.session_state.perfil,
-                "codigo_apr": codigo_unico,
-            }).execute()
-            
-            st.success(f"APR registrada com sucesso! Código: {codigo_unico}")
-            
-        except Exception as e:
-            st.error(f"Erro ao salvar: {e}")
-
-    # --- BUSCA E PDF ---
-    st.divider()
-    st.subheader("🔍 Buscar e Exportar APR")
-    
-    busca_codigo = st.text_input("Digite o código da APR para buscar:")
-    
-    if busca_codigo:
-        resultado = supabase.table("APR").select("*").eq("codigo_apr", busca_codigo).execute()
+        st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
-        if resultado.data:
-            apr_data = resultado.data[0]
-            st.write("Dados encontrados:", apr_data)
+        col1, col2 = st.columns(2)
+        with col1:
+            data_atividade = st.date_input("Data da Atividade")
+            local_atividade = st.text_input("Local da Atividade")
+        with col2:
+            placa_veiculo = st.text_input("Placa do Veículo")
+        
+        st.write("### ✅ CHECKLIST DETALHADO")
+        c1, c2 = st.columns(2)
+        with c1:
+            uso_cinto = st.checkbox("Cinto de Segurança")
+            uso_capacete = st.checkbox("Capacete Classe B")
+            amarracao_escada = st.checkbox("Amarração da Escada")
+            chuva = st.checkbox("Chuva")
+            animais_peconhetos = st.checkbox("Animais Peçonhentos")
+        with c2:
+            area_sinalizada = st.checkbox("Sinalização da área")
+            verificacao_geral = st.checkbox("Verificação Geral")
+            poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
+            integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
+        
+        st.divider()
+        houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
+        foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
+        motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
+        
+        if st.button("REGISTRAR APR"):
+            url_foto = ""
+            if foto_paralisacao:
+                try:
+                    timestamp = int(time.time())
+                    caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
+                    supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
+                    url_foto = caminho
+                except Exception as e:
+                    st.error(f"Erro no upload: {e}")
             
-            # Lógica para PDF (requer: pip install fpdf)
-            from fpdf import FPDF
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", size=12)
-            pdf.cell(200, 10, txt=f"Relatorio APR: {apr_data['codigo_apr']}", ln=True, align='C')
-            pdf.cell(200, 10, txt=f"Tecnico: {apr_data['responsavel']}", ln=True)
-            pdf.cell(200, 10, txt=f"Integridade Poste: {apr_data['integridade_poste']}", ln=True)
-            
-            # Transforma em bytes para o download
-            pdf_output = pdf.output(dest='S').encode('latin-1')
-            
-            st.download_button(
-                label="📥 Baixar PDF da APR",
-                data=pdf_output,
-                file_name=f"APR_{busca_codigo}.pdf",
-                mime="application/pdf"
-            )
-        else:
-            st.warning("Código não encontrado.")
+            if houve_paralisacao and not url_foto:
+                st.error("Atenção: A foto é obrigatória para serviços paralisados!")
+            else:
+                try:
+                    supabase.table("APR").insert({
+                        "data_atividade": str(data_atividade),
+                        "local_atividade": local_atividade,
+                        "equipe": st.session_state.nome_tecnico,
+                        "placa_veiculo": placa_veiculo,
+                        "uso_cinto": uso_cinto,
+                        "uso_capacete": uso_capacete,
+                        "amarracao_escada": amarracao_escada,
+                        "chuva": chuva,
+                        "animais_peconhetos": animais_peconhetos,
+                        "area_sinalizada": area_sinalizada,
+                        "verificacao_geral": verificacao_geral,
+                        "poste_energizado": poste_energizado,
+                        "integridade_poste": integridade_poste,
+                        "houve_paralisacao": houve_paralisacao,
+                        "motivo_paralisacao": motivo_paralisacao,
+                        "responsavel": st.session_state.nome_tecnico,
+                        "foto_paralisacao": url_foto,
+                        "perfil": st.session_state.perfil
+                    }).execute()
+                    st.success("APR registrada com sucesso!")
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
 
-                    
     with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
