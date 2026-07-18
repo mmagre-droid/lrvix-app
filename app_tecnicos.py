@@ -156,18 +156,24 @@ else:
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO E AÇÕES ADOTADAS")
             
             if st.form_submit_button("REGISTRAR APR"):
-                # Validação
+                # Debug para verificar se o Streamlit reconhece o arquivo
+                if foto_paralisacao is None:
+                    st.write("Debug: Nenhum arquivo foi detectado pelo uploader.")
+                else:
+                    st.write(f"Debug: Arquivo detectado: {foto_paralisacao.name}")
+
                 if houve_paralisacao and not foto_paralisacao:
                     st.error("Erro: A foto é obrigatória quando o serviço é paralisado!")
                 else:
-                    caminho_foto = ""
                     try:
+                        caminho_foto = ""
                         if foto_paralisacao:
                             timestamp = int(time.time())
                             caminho_foto = f"fotos/{timestamp}_{foto_paralisacao.name}"
+                            # Certifique-se que o nome do bucket 'fotos_atendimentos' está correto
                             supabase.storage.from_("fotos_atendimentos").upload(caminho_foto, foto_paralisacao.getvalue())
                         
-                        # Inserção
+                        # Inserção no banco
                         supabase.table("APR").insert({
                             "data_atividade": str(data_atividade),
                             "local_atividade": local_atividade,
@@ -180,13 +186,12 @@ else:
                             "motivo_paralisacao": motivo_paralisacao,
                             "verificacao_geral": verificacao_geral,
                             "responsavel": st.session_state.nome_tecnico,
-                            "foto_paralisacao": caminho_foto, # Agora garantimos que enviamos o caminho ou string vazia
+                            "foto_paralisacao": caminho_foto,
                             "perfil": st.session_state.perfil
                         }).execute()
                         st.success("APR registrada com sucesso!")
                     except Exception as e:
-                        st.error(f"Erro ao salvar APR: {e}")
-
+                        st.error(f"Erro ao salvar: {e}")
     with aba4:
         st.subheader("ADMINISTRAÇÃO DE PERFIS")
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
