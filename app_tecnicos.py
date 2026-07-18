@@ -1,3 +1,4 @@
+Python
 import streamlit as st
 from supabase import create_client
 
@@ -163,7 +164,7 @@ else:
                         # --- SOLUÇÃO DO ERRO CAMINHO_FOTO AQUI ---
                         caminho_foto = ""
                         if foto_paralisacao:
-                            caminho_foto = f"fotos/{foto_paralisacao.name}"                            
+                            caminho_foto = f"fotos/{foto_paralisacao.name}"
                             supabase.storage.from_("fotos_atendimentos").upload(caminho_foto, foto_paralisacao.getvalue())
                         # -----------------------------------------
 
