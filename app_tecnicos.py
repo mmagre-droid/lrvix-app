@@ -125,18 +125,28 @@ else:
                 .execute()
                 
             if atendimentos.data:
-                # Criamos um DataFrame e filtramos apenas as colunas que você quer mostrar
                 import pandas as pd
                 df = pd.DataFrame(atendimentos.data)
-                
-                # Lista das colunas que você deseja ocultar
                 colunas_para_ocultar = ['id', 'created_at', 'responsavel']
-                
-                # Seleciona apenas as colunas que NÃO estão na lista de ocultação
                 df_exibicao = df.drop(columns=[c for c in colunas_para_ocultar if c in df.columns])
                 
-                # Exibe o dataframe filtrado
+                # --- AQUI VOCÊ EXIBE A TABELA ---
                 st.dataframe(df_exibicao, use_container_width=True)
+
+                # --- AQUI VOCÊ COLA O NOVO CÓDIGO DO BOTÃO ---
+                import io
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                    df_exibicao.to_excel(writer, index=False, sheet_name='Atendimentos')
+                
+                st.download_button(
+                    label="📥 Baixar tabela em Excel",
+                    data=buffer.getvalue(),
+                    file_name="atendimentos.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+                # ---------------------------------------------
+
             else:
                 st.info("Você ainda não possui atendimentos internos ou externos registrados.")
         except Exception as e:
