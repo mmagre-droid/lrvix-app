@@ -134,22 +134,27 @@ else:
     with aba2: ## ABA ATENDIMENTO
         st.subheader("Lista de Atendimentos")
         
-        # Inicia a query base buscando todos os registros
         query = supabase.table("ATENDIMENTO").select("*")
         
-        # Se o perfil não for "Administrador", aplica o filtro pelo CPF do técnico logado
         if st.session_state.perfil != "Administrador":
             query = query.eq("cpf_tecnico", st.session_state.cpf_tecnico)
         
-        # Executa a query montada
         atendimentos = query.execute()
             
         if atendimentos.data:
-            st.dataframe(atendimentos.data, use_container_width=True)
+            # Converte para DataFrame
+            df = pd.DataFrame(atendimentos.data)
+            
+            # Lista de colunas que você NÃO quer exibir
+            colunas_para_ocultar = ['id', 'created_at', 'cpf_tecnico']
+            
+            # Filtra o DataFrame mantendo apenas as colunas que NÃO estão na lista acima
+            # O 'if col in df.columns' evita erros caso alguma coluna não exista
+            df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
+            
+            st.dataframe(df_exibicao, use_container_width=True)
         else:
-            st.info("Nenhum atendimento registrado.")
-
-    with aba3:
+            st.info("Nenhum atendimento registrado.")    with aba3:
         # (Código da APR mantido como original)
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         with st.form("form_apr", clear_on_submit=True):
