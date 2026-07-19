@@ -29,7 +29,8 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
         st.error(f"Erro ao cadastrar: {e}")
         return False
 
-def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url):
+# Função corrigida para incluir nome_tecnico e cpf_tecnico
+def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico):
     try:
         supabase.table("ATENDIMENTO").insert({
             "data_execucao": str(data_execucao),
@@ -39,7 +40,9 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
             "mercado": mercado,
             "tipo_servico": tipo_servico,
             "observacao": observacao,
-            "foto": foto_url
+            "foto": foto_url,
+            "responsavel": nome_tecnico,
+            "cpf_tecnico": cpf_tecnico
         }).execute()
         return True
     except Exception as e:
@@ -58,7 +61,7 @@ if not st.session_state.logado:
                 st.session_state.logado = True
                 st.session_state.nome_tecnico = user.data[0]["nome"]
                 st.session_state.perfil = user.data[0]["perfil"]
-                st.session_state.cpf_tecnico = user.data[0]["cpf"] # ADICIONE ESTA LINHA
+                st.session_state.cpf_tecnico = user.data[0]["cpf"]
                 st.rerun()
             else:
                 st.error("CPF ou Senha incorretos.")
@@ -83,14 +86,13 @@ else:
 
     st.success(f"Logado como: {st.session_state.nome_tecnico} ({st.session_state.perfil})")
     
-    # Lógica para mostrar a aba ADMIN apenas para Administradores
     if st.session_state.perfil == "Administrador":
         aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "⚙️ ADMIN"])
     else:
         aba1, aba2, aba3 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR"])
         aba4 = None
 
-    with aba1: ## ABA FORMULARIO
+    with aba1:
         with st.form("form_atendimento", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
@@ -116,13 +118,12 @@ else:
                     except Exception as e:
                         st.error(f"Erro ao subir foto: {e}")
                 
-                if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto):
+                # Chamada corrigida com os dados da sessão
+                if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto, st.session_state.nome_tecnico, st.session_state.cpf_tecnico):
                     st.success("Atendimento registrado com sucesso!")
 
-    with aba2: ## ABA ATENDIMENTO
+    with aba2:
         st.subheader("Lista de Atendimentos")
-        
-        # Filtra pelo nome do técnico armazenado no st.session_state.nome
         atendimentos = supabase.table("ATENDIMENTO") \
             .select("*") \
             .eq("cpf_tecnico", st.session_state.cpf_tecnico) \
@@ -133,41 +134,37 @@ else:
         else:
             st.info("Nenhum atendimento registrado para você.")
 
-    with aba3: ## ABA APR
-            st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+    with aba3:
+        # (Código da APR mantido como original)
+        st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+        with st.form("form_apr", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                data_atividade = st.date_input("Data da Atividade")
+                local_atividade = st.text_input("Local da Atividade")
+            with col2:
+                placa_veiculo = st.text_input("Placa do Veículo")
             
-            # Criamos um formulário que limpa automaticamente ao ser submetido
-            with st.form("form_apr", clear_on_submit=True):
-                col1, col2 = st.columns(2)
-                with col1:
-                    data_atividade = st.date_input("Data da Atividade")
-                    local_atividade = st.text_input("Local da Atividade")
-                with col2:
-                    placa_veiculo = st.text_input("Placa do Veículo")
-                
-                st.write("### ✅ CHECKLIST DETALHADO")
-                c1, c2 = st.columns(2)
-                with c1:
-                    uso_cinto = st.checkbox("Cinto de Segurança")
-                    uso_capacete = st.checkbox("Capacete Classe B")
-                    amarracao_escada = st.checkbox("Amarração da Escada")
-                    area_sinalizada = st.checkbox("Sinalização da área")
-                    verificacao_geral = st.checkbox("Verificação Geral")            
-                with c2:
-                    chuva = st.selectbox("Chuva",["Não", "Sim"])
-                    animais_peconhetos = st.selectbox("Animais Peçonhentos", ["Não", "Sim"])        
-                    poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
-                    integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
-                
-                st.divider()
-                houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
-                foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
-                motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
-                
-                # O botão do formulário deve ser form_submit_button
-                submit = st.form_submit_button("REGISTRAR APR")
+            st.write("### ✅ CHECKLIST DETALHADO")
+            c1, c2 = st.columns(2)
+            with c1:
+                uso_cinto = st.checkbox("Cinto de Segurança")
+                uso_capacete = st.checkbox("Capacete Classe B")
+                amarracao_escada = st.checkbox("Amarração da Escada")
+                area_sinalizada = st.checkbox("Sinalização da área")
+                verificacao_geral = st.checkbox("Verificação Geral")            
+            with c2:
+                chuva = st.selectbox("Chuva",["Não", "Sim"])
+                animais_peconhetos = st.selectbox("Animais Peçonhentos", ["Não", "Sim"])       
+                poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
+                integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
+            
+            st.divider()
+            houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
+            foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
+            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
+            submit = st.form_submit_button("REGISTRAR APR")
 
-            # A lógica de processamento fica FORA do form, mas lida com o clique do botão
             if submit:
                 url_foto = ""
                 if foto_paralisacao:
@@ -208,25 +205,19 @@ else:
                             "foto_paralisacao": url_foto,
                             "perfil": st.session_state.perfil
                         }).execute()
-                        
                         st.success(f"APR registrada com sucesso! Número de controle: {numero_formatado}")
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
 
-    if aba4 is not None: ## ABA ADMINSTRADOR
+    if aba4 is not None:
         with aba4:
             st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
-
-            # Campo de senha da administração
             senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
-
             if senha_admin == "123456":
-                st.write("Bem-vindo ao painel de controle.")
                 try:
                     dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
                     df_tecnicos = pd.DataFrame(dados_tecnicos.data)
                     edited_df = st.data_editor(df_tecnicos, use_container_width=True)
-
                     if st.button("SALVAR PERFIS"):
                         with st.spinner("Salvando..."):
                             for index, row in edited_df.iterrows():
