@@ -196,22 +196,17 @@ else:
     with aba4:
         st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
     
-        # 1. Autenticação básica para entrar na área admin
         senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
     
-        if senha_admin == "123456": # Troque pela sua senha real
-        st.write("Bem-vindo ao painel de controle.")
-        
-        # 2. Buscar dados atuais do banco
+        if senha_admin == "123456":
+            st.write("Bem-vindo ao painel de controle.")
         try:
             dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
             df_tecnicos = pd.DataFrame(dados_tecnicos.data)
             
-            # 3. Criar editor de dados (tabela editável)
             edited_df = st.data_editor(df_tecnicos, use_container_width=True)
             
             if st.button("SALVAR PERFIS"):
-                # 4. Loop para atualizar cada linha editada
                 with st.spinner("Salvando alterações..."):
                     for index, row in edited_df.iterrows():
                         supabase.table("TECNICOS").update({
@@ -222,12 +217,9 @@ else:
                             "ativo": row["ativo"],
                             "perfil": row["perfil"]
                         }).eq("id", row["id"]).execute()
-                    
-                    st.success("Todos os dados foram atualizados com sucesso!")
-                    st.rerun() 
-                    
+                    st.success("Dados atualizados com sucesso!")
+                    st.rerun()
         except Exception as e:
             st.error(f"Erro ao carregar dados: {e}")
-            
-    elif senha_admin:
+        elif senha_admin:
         st.error("Senha incorreta!")
