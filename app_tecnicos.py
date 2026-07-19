@@ -131,7 +131,7 @@ else:
                 if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto, st.session_state.nome_tecnico, st.session_state.cpf_tecnico):
                     st.success("Atendimento registrado com sucesso!")
 
-   with aba2: ## ABA ATENDIMENTO
+    with aba2: ## ABA ATENDIMENTO
         st.subheader("Lista de Atendimentos")
         
         query = supabase.table("ATENDIMENTO").select("*")
@@ -155,6 +155,7 @@ else:
             st.dataframe(df_exibicao, use_container_width=True)
         else:
             st.info("Nenhum atendimento registrado.")
+
     with aba3:
         # (Código da APR mantido como original)
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
