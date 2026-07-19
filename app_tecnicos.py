@@ -208,7 +208,6 @@ else:
             df_tecnicos = pd.DataFrame(dados_tecnicos.data)
             
             # 3. Criar editor de dados (tabela editável)
-            # O st.data_editor permite editar várias linhas de uma vez
             edited_df = st.data_editor(df_tecnicos, use_container_width=True)
             
             if st.button("SALVAR PERFIS"):
@@ -225,7 +224,7 @@ else:
                         }).eq("id", row["id"]).execute()
                     
                     st.success("Todos os dados foram atualizados com sucesso!")
-                    st.rerun() # Recarrega a página para atualizar a tabela
+                    st.rerun() 
                     
         except Exception as e:
             st.error(f"Erro ao carregar dados: {e}")
