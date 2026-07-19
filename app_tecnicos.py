@@ -124,7 +124,7 @@ else:
         # Filtra pelo nome do técnico armazenado no st.session_state.nome
         atendimentos = supabase.table("ATENDIMENTO") \
             .select("*") \
-            .eq("responsavel", st.session_state.nome_tecnico) \
+            .ilike("responsavel", f"%{st.session_state.nome_tecnico.split()[0]}%") \
             .execute()
             
         if atendimentos.data:
