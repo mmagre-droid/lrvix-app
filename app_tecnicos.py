@@ -82,7 +82,12 @@ else:
 
     st.success(f"Logado como: {st.session_state.nome_tecnico} ({st.session_state.perfil})")
     
-    aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "⚙️ ADMIN"])
+    # Lógica para mostrar a aba ADMIN apenas para Administradores
+    if st.session_state.perfil == "Administrador":
+        aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "⚙️ ADMIN"])
+    else:
+        aba1, aba2, aba3 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR"])
+        aba4 = None
 
     with aba1:
         with st.form("form_atendimento", clear_on_submit=True):
@@ -193,34 +198,36 @@ else:
                     st.success("APR registrada com sucesso!")
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
-                    
+
     with aba4:
-        st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
-        # ESTAS LINHAS ABAIXO PRECISAM TER UM RECUO (4 espaços para a direita)
-        senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+        if aba4 is not None:
+        with aba4:
+            st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
+            
+            # Campo de senha da administração
+            senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
 
-        if senha_admin == "123456":
-            st.write("Bem-vindo ao painel de controle.")
-            try:
-                dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
-                df_tecnicos = pd.DataFrame(dados_tecnicos.data)
-                edited_df = st.data_editor(df_tecnicos, use_container_width=True)
+            if senha_admin == "123456":
+                st.write("Bem-vindo ao painel de controle.")
+                try:
+                    dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
+                    df_tecnicos = pd.DataFrame(dados_tecnicos.data)
+                    edited_df = st.data_editor(df_tecnicos, use_container_width=True)
 
-                if st.button("SALVAR PERFIS"):
-                    with st.spinner("Salvando..."):
-                        for index, row in edited_df.iterrows():
-                            supabase.table("TECNICOS").update({
-                                "nome": row["nome"],
-                                "cpf": row["cpf"],
-                                "email": row["email"],
-                                "telefone": row["telefone"],
-                                "ativo": row["ativo"],
-                                "perfil": row["perfil"]
-                            }).eq("id", row["id"]).execute()
-                        st.success("Atualizado com sucesso!")
-                        st.rerun()
-            except Exception as e:
-                st.error(f"Erro: {e}")
-        else:
-            if senha_admin != "":
+                    if st.button("SALVAR PERFIS"):
+                        with st.spinner("Salvando..."):
+                            for index, row in edited_df.iterrows():
+                                supabase.table("TECNICOS").update({
+                                    "nome": row["nome"],
+                                    "cpf": row["cpf"],
+                                    "email": row["email"],
+                                    "telefone": row["telefone"],
+                                    "ativo": row["ativo"],
+                                    "perfil": row["perfil"]
+                                }).eq("id", row["id"]).execute()
+                            st.success("Atualizado com sucesso!")
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Erro: {e}")
+            elif senha_admin != "":
                 st.error("Senha incorreta!")
