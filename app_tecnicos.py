@@ -215,8 +215,10 @@ else:
                         
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
-            
-            with aba4:
+
+
+    if aba4 is not None: ## ABA ADMINSTRADOR
+        with aba4:
             st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
 
             # Campo de senha da administração
