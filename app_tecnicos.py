@@ -1,6 +1,7 @@
 import streamlit as st
 from supabase import create_client
 import time
+import pandas as pd
 
 # --- CONFIGURAÇÃO ---
 url = st.secrets["SUPABASE_URL"]
