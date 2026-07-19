@@ -266,23 +266,38 @@ else:
                 elif opcao_admin == "💰 Tabela LPU":
                     st.write("### 💰 Gerenciamento da LPU")
                     try:
+                        # Busca os dados atuais
                         dados_lpu = supabase.table("LPU").select("*").execute()
-                        df_lpu = pd.DataFrame(dados_lpu.data)
                         
-                        # Edição da planilha de preços
-                        df_editada_lpu = st.data_editor(df_lpu, use_container_width=True)
+                        # Se estiver vazio, cria um DataFrame com colunas vazias para você preencher
+                        if not dados_lpu.data:
+                            df_lpu = pd.DataFrame(columns=["servico", "valor"])
+                        else:
+                            df_lpu = pd.DataFrame(dados_lpu.data)
+                        
+                        # num_rows="dynamic" permite que você adicione quantas linhas precisar
+                        df_editada_lpu = st.data_editor(
+                            df_lpu, 
+                            use_container_width=True, 
+                            num_rows="dynamic" 
+                        )
 
                         if st.button("SALVAR LPU"):
-                            with st.spinner("Atualizando valores..."):
+                            with st.spinner("Salvando..."):
                                 for index, row in df_editada_lpu.iterrows():
-                                    supabase.table("LPU").update({
-                                        "servico": row["servico"],
-                                        "valor": row["valor"]
-                                    }).eq("id", row["id"]).execute()
+                                    # Se a linha já existe no banco (tem 'id'), atualizamos
+                                    if "id" in row and pd.notnull(row["id"]):
+                                        supabase.table("LPU").update({
+                                            "servico": row["servico"],
+                                            "valor": row["valor"]
+                                        }).eq("id", row["id"]).execute()
+                                    # Se for uma linha nova (sem 'id'), inserimos
+                                    elif row["servico"]: # Só insere se tiver nome do serviço
+                                        supabase.table("LPU").insert({
+                                            "servico": row["servico"],
+                                            "valor": row["valor"]
+                                        }).execute()
                                 st.success("Tabela LPU atualizada com sucesso!")
                                 st.rerun()
                     except Exception as e:
-                        st.error(f"Erro ao carregar LPU: {e}")
-            
-            elif senha_admin != "":
-                st.error("Senha incorreta!")
+                        st.error(f"Erro ao acessar tabela LPU: {e}")
