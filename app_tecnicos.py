@@ -120,11 +120,17 @@ else:
 
     with aba2:
         st.subheader("Lista de Atendimentos")
-        atendimentos = supabase.table("ATENDIMENTO").select("*").execute()
+        
+        # Filtra pelo nome do técnico armazenado no st.session_state.nome
+        atendimentos = supabase.table("ATENDIMENTO") \
+            .select("*") \
+            .eq("tecnico", st.session_state.nome) \
+            .execute()
+            
         if atendimentos.data:
             st.dataframe(atendimentos.data, use_container_width=True)
         else:
-            st.info("Nenhum atendimento registrado.")
+            st.info("Nenhum atendimento registrado para você.")
 
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
