@@ -195,19 +195,17 @@ else:
                     
     with aba4:
         st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
-    
-        senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
-    
-        if senha_admin == "123456":
-            st.write("Bem-vindo ao painel de controle.")
+    senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+
+    if senha_admin == "123456":
+        st.write("Bem-vindo ao painel de controle.")
         try:
             dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
             df_tecnicos = pd.DataFrame(dados_tecnicos.data)
-            
             edited_df = st.data_editor(df_tecnicos, use_container_width=True)
-            
+
             if st.button("SALVAR PERFIS"):
-                with st.spinner("Salvando alterações..."):
+                with st.spinner("Salvando..."):
                     for index, row in edited_df.iterrows():
                         supabase.table("TECNICOS").update({
                             "nome": row["nome"],
@@ -217,9 +215,10 @@ else:
                             "ativo": row["ativo"],
                             "perfil": row["perfil"]
                         }).eq("id", row["id"]).execute()
-                    st.success("Dados atualizados com sucesso!")
+                    st.success("Atualizado com sucesso!")
                     st.rerun()
         except Exception as e:
-            st.error(f"Erro ao carregar dados: {e}")
-        elif senha_admin:
-        st.error("Senha incorreta!")
+            st.error(f"Erro: {e}")
+    else:
+        if senha_admin != "":
+            st.error("Senha incorreta!")
