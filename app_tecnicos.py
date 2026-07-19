@@ -57,14 +57,19 @@ if not st.session_state.logado:
         senha_input = st.text_input("Senha", type="password", key="login_senha")
         if st.button("Entrar"):
             user = supabase.table("TECNICOS").select("*").eq("cpf", cpf_input).eq("senha", senha_input).execute()
-            if user.data:
-                st.session_state.logado = True
-                st.session_state.nome_tecnico = user.data[0]["nome"]
-                st.session_state.perfil = user.data[0]["perfil"]
-                st.session_state.cpf_tecnico = user.data[0]["cpf"]
-                st.rerun()
-            else:
-                st.error("CPF ou Senha incorretos.")
+    if st.button("Entrar"):
+    # Adicionamos o filtro .eq("ativo", True) aqui:
+        user = supabase.table("TECNICOS").select("*").eq("cpf", cpf_input).eq("senha", senha_input).eq("ativo", True).execute()
+    
+    if user.data:
+        st.session_state.logado = True
+        st.session_state.nome_tecnico = user.data[0]["nome"]
+        st.session_state.perfil = user.data[0]["perfil"]
+        st.session_state.cpf_tecnico = user.data[0]["cpf"]
+        st.rerun()
+    else:
+        # A mensagem de erro agora cobre tanto senha errada quanto conta inativa
+        st.error("CPF ou Senha incorretos, ou usuário inativo.")
     with tab2:
         nome = st.text_input("Nome Completo")
         cpf = st.text_input("CPF (somente números)")
