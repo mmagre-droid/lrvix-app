@@ -231,17 +231,24 @@ else:
                     except Exception as e:
                         st.error(f"Erro ao salvar: {e}")
 
-    if aba4 is not None:
+    if aba4 is not None: ## ABA ADMINISTRADOR
         with aba4:
-            st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
+            st.subheader("⚙️ PAINEL ADMINISTRATIVO")
+            
+            # Opções de Administração
+            opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "💰 Tabela LPU"])
+            
             senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+
             if senha_admin == "123456":
-                try:
-                    dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
-                    df_tecnicos = pd.DataFrame(dados_tecnicos.data)
-                    edited_df = st.data_editor(df_tecnicos, use_container_width=True)
-                    if st.button("SALVAR PERFIS"):
-                        with st.spinner("Salvando..."):
+                if opcao_admin == "Perfis de Usuários":
+                    st.write("### 👤 Gerenciamento de Perfis")
+                    try:
+                        dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
+                        df_tecnicos = pd.DataFrame(dados_tecnicos.data)
+                        edited_df = st.data_editor(df_tecnicos, use_container_width=True)
+
+                        if st.button("SALVAR PERFIS"):
                             for index, row in edited_df.iterrows():
                                 supabase.table("TECNICOS").update({
                                     "nome": row["nome"],
@@ -251,9 +258,31 @@ else:
                                     "ativo": row["ativo"],
                                     "perfil": row["perfil"]
                                 }).eq("id", row["id"]).execute()
-                            st.success("Atualizado com sucesso!")
+                            st.success("Perfis atualizados!")
                             st.rerun()
-                except Exception as e:
-                    st.error(f"Erro: {e}")
+                    except Exception as e:
+                        st.error(f"Erro ao carregar perfis: {e}")
+
+                elif opcao_admin == "💰 Tabela LPU":
+                    st.write("### 💰 Gerenciamento da LPU")
+                    try:
+                        dados_lpu = supabase.table("LPU").select("*").execute()
+                        df_lpu = pd.DataFrame(dados_lpu.data)
+                        
+                        # Edição da planilha de preços
+                        df_editada_lpu = st.data_editor(df_lpu, use_container_width=True)
+
+                        if st.button("SALVAR LPU"):
+                            with st.spinner("Atualizando valores..."):
+                                for index, row in df_editada_lpu.iterrows():
+                                    supabase.table("LPU").update({
+                                        "servico": row["servico"],
+                                        "valor": row["valor"]
+                                    }).eq("id", row["id"]).execute()
+                                st.success("Tabela LPU atualizada com sucesso!")
+                                st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao carregar LPU: {e}")
+            
             elif senha_admin != "":
                 st.error("Senha incorreta!")
