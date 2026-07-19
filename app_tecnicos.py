@@ -194,29 +194,41 @@ else:
                     st.error(f"Erro ao salvar: {e}")
                     
     with aba4:
-        st.subheader("ADMINISTRAÇÃO DE PERFIS")
-        senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+    st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
+    
+    # 1. Autenticação básica para entrar na área admin
+    senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+    
+    if senha_admin == "123456": # Troque pela sua senha real
+        st.write("Bem-vindo ao painel de controle.")
         
-        if senha_admin == "123456":
-            usuarios = supabase.table("TECNICOS").select("*").execute()
+        # 2. Buscar dados atuais do banco
+        try:
+            dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
+            df_tecnicos = pd.DataFrame(dados_tecnicos.data)
             
-            edited_data = st.data_editor(usuarios.data, column_config={
-                "perfil": st.column_config.SelectboxColumn(
-                    "PERFIL",
-                    options=["Técnico", "Assistente", "Administrador"],
-                    required=True,
-                )
-            })
+            # 3. Criar editor de dados (tabela editável)
+            # O st.data_editor permite editar várias linhas de uma vez
+            edited_df = st.data_editor(df_tecnicos, use_container_width=True)
             
             if st.button("SALVAR PERFIS"):
-                sucesso = True
-                for row in edited_data:
-                    try:
-                        supabase.table("TECNICOS").update({"perfil": row["perfil"]}).eq("cpf", row["cpf"]).execute()
-                    except:
-                        sucesso = False
-                if sucesso:
-                    st.success("PERFIS ATUALIZADOS!")
-                    st.rerun()
-        elif senha_admin:
-            st.error("SENHA INCORRETA!")
+                # 4. Loop para atualizar cada linha editada
+                with st.spinner("Salvando alterações..."):
+                    for index, row in edited_df.iterrows():
+                        supabase.table("TECNICOS").update({
+                            "nome": row["nome"],
+                            "cpf": row["cpf"],
+                            "email": row["email"],
+                            "telefone": row["telefone"],
+                            "ativo": row["ativo"],
+                            "perfil": row["perfil"]
+                        }).eq("id", row["id"]).execute()
+                    
+                    st.success("Todos os dados foram atualizados com sucesso!")
+                    st.rerun() # Recarrega a página para atualizar a tabela
+                    
+        except Exception as e:
+            st.error(f"Erro ao carregar dados: {e}")
+            
+    elif senha_admin:
+        st.error("Senha incorreta!")
