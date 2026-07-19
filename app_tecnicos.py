@@ -58,6 +58,7 @@ if not st.session_state.logado:
                 st.session_state.logado = True
                 st.session_state.nome_tecnico = user.data[0]["nome"]
                 st.session_state.perfil = user.data[0]["perfil"]
+                st.session_state.cpf_tecnico = user.data[0]["cpf"] # ADICIONE ESTA LINHA
                 st.rerun()
             else:
                 st.error("CPF ou Senha incorretos.")
@@ -124,7 +125,7 @@ else:
         # Filtra pelo nome do técnico armazenado no st.session_state.nome
         atendimentos = supabase.table("ATENDIMENTO") \
             .select("*") \
-            .ilike("responsavel", f"%{st.session_state.nome_tecnico.split()[0]}%") \
+            .eq("cpf_tecnico", st.session_state.cpf_tecnico) \
             .execute()
             
         if atendimentos.data:
