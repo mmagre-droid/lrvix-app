@@ -134,83 +134,88 @@ else:
             st.info("Nenhum atendimento registrado para você.")
 
     with aba3: ## ABA APR
-            st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                data_atividade = st.date_input("Data da Atividade")
-                local_atividade = st.text_input("Local da Atividade")
-            with col2:
-                placa_veiculo = st.text_input("Placa do Veículo")
-            
-            st.write("### ✅ CHECKLIST DETALHADO")
-            c1, c2 = st.columns(2)
-            with c1:
-                uso_cinto = st.checkbox("Cinto de Segurança")
-                uso_capacete = st.checkbox("Capacete Classe B")
-                amarracao_escada = st.checkbox("Amarração da Escada")
-                area_sinalizada = st.checkbox("Sinalização da área")
-                verificacao_geral = st.checkbox("Verificação Geral")            
-            with c2:
-                chuva = st.selectbox("Chuva",["Não", "Sim"])
-                animais_peconhetos = st.selectbox("Animais Peçonhentos", ["Não", "Sim"])        
-                poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
-                integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
-            
-            st.divider()
-            houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
-            foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
-            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
-            
-            if st.button("REGISTRAR APR"):
-                url_foto = ""
-                if foto_paralisacao:
-                    try:
-                        timestamp = int(time.time())
-                        caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
-                        supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
-                        url_foto = caminho
-                    except Exception as e:
-                        st.error(f"Erro no upload: {e}")
+    st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        data_atividade = st.date_input("Data da Atividade")
+        local_atividade = st.text_input("Local da Atividade")
+    with col2:
+        placa_veiculo = st.text_input("Placa do Veículo")
+    
+    st.write("### ✅ CHECKLIST DETALHADO")
+    c1, c2 = st.columns(2)
+    with c1:
+        uso_cinto = st.checkbox("Cinto de Segurança")
+        uso_capacete = st.checkbox("Capacete Classe B")
+        amarracao_escada = st.checkbox("Amarração da Escada")
+        area_sinalizada = st.checkbox("Sinalização da área")
+        verificacao_geral = st.checkbox("Verificação Geral")            
+    with c2:
+        chuva = st.selectbox("Chuva",["Não", "Sim"])
+        animais_peconhetos = st.selectbox("Animais Peçonhentos", ["Não", "Sim"])        
+        poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
+        integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
+    
+    st.divider()
+    houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
+    foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
+    motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
+    
+    if st.button("REGISTRAR APR"):
+        url_foto = ""
+        if foto_paralisacao:
+            try:
+                timestamp = int(time.time())
+                caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
+                supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
+                url_foto = caminho
+            except Exception as e:
+                st.error(f"Erro no upload: {e}")
+        
+        if houve_paralisacao and not url_foto:
+            st.error("Atenção: A foto é obrigatória para serviços paralisados!")
+        else:
+            try:
+                # Gerar número de controle
+                contagem = supabase.table("APR").select("*", count='exact').execute()
+                proximo_numero = (contagem.count or 0) + 1
+                numero_formatado = f"{proximo_numero:04d}"
+
+                supabase.table("APR").insert({
+                    "numero_controle": numero_formatado,
+                    "data_atividade": str(data_atividade),
+                    "local_atividade": local_atividade,
+                    "equipe": st.session_state.nome_tecnico,
+                    "placa_veiculo": placa_veiculo,
+                    "uso_cinto": uso_cinto,
+                    "uso_capacete": uso_capacete,
+                    "amarracao_escada": amarracao_escada,
+                    "area_sinalizada": area_sinalizada,
+                    "verificacao_geral": verificacao_geral,
+                    
+                    "animais_peconhetos": True if animais_peconhetos == "Sim" else False,
+                    "chuva": True if chuva == "Sim" else False,
+                    "poste_energizado": True if poste_energizado == "Sim" else False,
+                    
+                    "integridade_poste": integridade_poste, 
+                    
+                    "houve_paralisacao": houve_paralisacao,
+                    "motivo_paralisacao": motivo_paralisacao,
+                    "responsavel": st.session_state.nome_tecnico,
+                    "foto_paralisacao": url_foto,
+                    "perfil": st.session_state.perfil
+                }).execute()
                 
-                if houve_paralisacao and not url_foto:
-                    st.error("Atenção: A foto é obrigatória para serviços paralisados!")
-                else:
-                    try:
-                        # Gerar número de controle
-                        contagem = supabase.table("APR").select("*", count='exact').execute()
-                        proximo_numero = (contagem.count or 0) + 1
-                        numero_formatado = f"{proximo_numero:04d}"
-
-                        supabase.table("APR").insert({
-                            "numero_controle": numero_formatado,
-                            "data_atividade": str(data_atividade),
-                            "local_atividade": local_atividade,
-                            "equipe": st.session_state.nome_tecnico,
-                            "placa_veiculo": placa_veiculo,
-                            "uso_cinto": uso_cinto,
-                            "uso_capacete": uso_capacete,
-                            "amarracao_escada": amarracao_escada,
-                            "area_sinalizada": area_sinalizada,
-                            "verificacao_geral": verificacao_geral,
-                            
-                            "animais_peconhetos": True if animais_peconhetos == "Sim" else False,
-                            "chuva": True if chuva == "Sim" else False,
-                            "poste_energizado": True if poste_energizado == "Sim" else False,
-                            
-                            "integridade_poste": integridade_poste, 
-                            
-                            "houve_paralisacao": houve_paralisacao,
-                            "motivo_paralisacao": motivo_paralisacao,
-                            "responsavel": st.session_state.nome_tecnico,
-                            "foto_paralisacao": url_foto,
-                            "perfil": st.session_state.perfil
-                        }).execute()
-                        
-                        st.success(f"APR registrada com sucesso! Número de controle: {numero_formatado}")
-                    except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
-
+                st.success(f"APR registrada com sucesso! Número de controle: {numero_formatado}")
+                
+                # Pausa para leitura e limpeza dos campos
+                import time
+                time.sleep(2)
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"Erro ao salvar: {e}")
     if aba4 is not None: ## ABA ADMINSTRADOR
         with aba4:
             st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
