@@ -131,17 +131,23 @@ else:
                 if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto, st.session_state.nome_tecnico, st.session_state.cpf_tecnico):
                     st.success("Atendimento registrado com sucesso!")
 
-    with aba2:
+    with aba2: ## ABA ATENDIMENTO
         st.subheader("Lista de Atendimentos")
-        atendimentos = supabase.table("ATENDIMENTO") \
-            .select("*") \
-            .eq("cpf_tecnico", st.session_state.cpf_tecnico) \
-            .execute()
+        
+        # Inicia a query base buscando todos os registros
+        query = supabase.table("ATENDIMENTO").select("*")
+        
+        # Se o perfil não for "Administrador", aplica o filtro pelo CPF do técnico logado
+        if st.session_state.perfil != "Administrador":
+            query = query.eq("cpf_tecnico", st.session_state.cpf_tecnico)
+        
+        # Executa a query montada
+        atendimentos = query.execute()
             
         if atendimentos.data:
             st.dataframe(atendimentos.data, use_container_width=True)
         else:
-            st.info("Nenhum atendimento registrado para você.")
+            st.info("Nenhum atendimento registrado.")
 
     with aba3:
         # (Código da APR mantido como original)
