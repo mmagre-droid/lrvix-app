@@ -194,12 +194,12 @@ else:
                     st.error(f"Erro ao salvar: {e}")
                     
     with aba4:
-    st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
+        st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
     
-    # 1. Autenticação básica para entrar na área admin
-    senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+        # 1. Autenticação básica para entrar na área admin
+        senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
     
-    if senha_admin == "123456": # Troque pela sua senha real
+        if senha_admin == "123456": # Troque pela sua senha real
         st.write("Bem-vindo ao painel de controle.")
         
         # 2. Buscar dados atuais do banco
