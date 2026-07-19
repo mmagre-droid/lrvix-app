@@ -199,10 +199,10 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
-    with aba4:
-        if aba4 is not None:
+    if aba4 is not None:
+        with aba4:
             st.subheader("⚙️ ADMINISTRAÇÃO DE PERFIS")
-            
+
             # Campo de senha da administração
             senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
 
