@@ -154,7 +154,8 @@ else:
             
             st.dataframe(df_exibicao, use_container_width=True)
         else:
-            st.info("Nenhum atendimento registrado.")    with aba3:
+            st.info("Nenhum atendimento registrado.")
+   with aba3:
         # (Código da APR mantido como original)
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         with st.form("form_apr", clear_on_submit=True):
