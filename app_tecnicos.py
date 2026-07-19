@@ -124,7 +124,7 @@ else:
         # Filtra pelo nome do técnico armazenado no st.session_state.nome
         atendimentos = supabase.table("ATENDIMENTO") \
             .select("*") \
-            .eq("tecnico", st.session_state.nome) \
+            .eq("tecnico", st.session_state.usuario_logado) \
             .execute()
             
         if atendimentos.data:
