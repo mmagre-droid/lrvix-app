@@ -30,20 +30,20 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
         return False
 
 # Função corrigida para incluir nome_tecnico e cpf_tecnico
-def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico,metragem_cabo, observacao, foto_url, nome_tecnico, cpf_tecnico):
+def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico, metragem_cabo):
     try:
         supabase.table("ATENDIMENTO").insert({
             "data_execucao": str(data_execucao),
             "cliente": cliente,
             "endereco": endereco,
-            "metragem_cabo": metragem_cabo, ## ACABEI DE CRIAR
             "protocolo": protocolo,
             "mercado": mercado,
             "tipo_servico": tipo_servico,
             "observacao": observacao,
             "foto": foto_url,
             "responsavel": nome_tecnico,
-            "cpf_tecnico": cpf_tecnico
+            "cpf_tecnico": cpf_tecnico,
+            "metragem_cabo": metragem_cabo
         }).execute()
         return True
     except Exception as e:
@@ -130,7 +130,7 @@ else:
                         st.error(f"Erro ao subir foto: {e}")
                 
                 # Chamada corrigida com os dados da sessão
-                if registrar_atendimento(data_execucao, cliente, endereco,metragem_cabo, protocolo, mercado, tipo_servico, observacao, url_foto, st.session_state.nome_tecnico, st.session_state.cpf_tecnico):
+                if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto, st.session_state.nome_tecnico, st.session_state.cpf_tecnico, metragem_cabo):
                     st.success("Atendimento registrado com sucesso!")
     with aba2: ## ABA ATENDIMENTO
         st.subheader("Lista de Atendimentos")
