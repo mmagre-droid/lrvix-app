@@ -130,7 +130,7 @@ else:
                         st.error(f"Erro ao subir foto: {e}")
                 
                 # Chamada corrigida com os dados da sessão
-                if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto, st.session_state.nome_tecnico, st.session_state.cpf_tecnico):
+                if registrar_atendimento(data_execucao, cliente, endereco,metragem_cabo, protocolo, mercado, tipo_servico, observacao, url_foto, st.session_state.nome_tecnico, st.session_state.cpf_tecnico):
                     st.success("Atendimento registrado com sucesso!")
     with aba2: ## ABA ATENDIMENTO
         st.subheader("Lista de Atendimentos")
