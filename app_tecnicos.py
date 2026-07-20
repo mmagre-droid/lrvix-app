@@ -30,12 +30,13 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
         return False
 
 # Função corrigida para incluir nome_tecnico e cpf_tecnico
-def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico):
+def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico,metragem_cabo, observacao, foto_url, nome_tecnico, cpf_tecnico):
     try:
         supabase.table("ATENDIMENTO").insert({
             "data_execucao": str(data_execucao),
             "cliente": cliente,
             "endereco": endereco,
+            "metragem_cabo": metragem_cabo, ## ACABEI DE CRIAR
             "protocolo": protocolo,
             "mercado": mercado,
             "tipo_servico": tipo_servico,
@@ -108,6 +109,7 @@ else:
                 data_execucao = st.date_input("DATA DA EXECUÇÃO")
                 cliente = st.text_input("NOME DO CLIENTE")
                 endereco = st.text_input("ENDEREÇO")
+                metragem_cabo: st.text_input("CABO UTILIZADO")
             with c2:
                 protocolo = st.text_input("PROTOCOLO")
                 mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
@@ -130,7 +132,6 @@ else:
                 # Chamada corrigida com os dados da sessão
                 if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto, st.session_state.nome_tecnico, st.session_state.cpf_tecnico):
                     st.success("Atendimento registrado com sucesso!")
-
     with aba2: ## ABA ATENDIMENTO
         st.subheader("Lista de Atendimentos")
         
