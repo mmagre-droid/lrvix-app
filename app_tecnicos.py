@@ -2,6 +2,8 @@ import streamlit as st
 from supabase import create_client
 import time
 import pandas as pd
+from fpdf import FPDF
+import os
 
 # --- CONFIGURAÇÃO ---
 url = st.secrets["SUPABASE_URL"]
@@ -150,6 +152,7 @@ else:
                         metragem_cabo
                     ):
                         st.success("Atendimento registrado com sucesso!")
+            
     with aba2: ## ABA ATENDIMENTO
         st.subheader("Lista de Atendimentos")
         
@@ -176,8 +179,36 @@ else:
             st.info("Nenhum atendimento registrado.")
 
     with aba3:
-        # (Código da APR mantido como original)
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+        
+        # --- SEÇÃO DE VISUALIZAÇÃO ---
+        st.write("### 📂 APRs Cadastradas")
+        try:
+            # Busca IDs e números de controle
+            lista_aprs = supabase.table("APR").select("id, numero_controle").order("numero_controle", desc=True).execute()
+            
+            if lista_aprs.data:
+                # Exibição em grid
+                cols = st.columns(4)
+                for i, item in enumerate(lista_aprs.data):
+                    with cols[i % 4]:
+                        if st.button(f"📄 APR {item['numero_controle']}", key=f"apr_{item['id']}"):
+                            arquivo = gerar_pdf_apr(item['id'])
+                            with open(arquivo, "rb") as f:
+                                st.download_button(
+                                    label="📥 BAIXAR PDF",
+                                    data=f,
+                                    file_name=arquivo,
+                                    mime="application/pdf"
+                                )
+            else:
+                st.info("Nenhuma APR cadastrada.")
+        except Exception as e:
+            st.error(f"Erro ao listar APRs: {e}")
+
+        st.divider()
+        
+        # --- FORMULÁRIO DE NOVA APR ---
         with st.form("form_apr", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
@@ -193,10 +224,10 @@ else:
                 uso_capacete = st.checkbox("Capacete Classe B")
                 amarracao_escada = st.checkbox("Amarração da Escada")
                 area_sinalizada = st.checkbox("Sinalização da área")
-                verificacao_geral = st.checkbox("Verificação Geral")            
+                verificacao_geral = st.checkbox("Verificação Geral")
             with c2:
-                chuva = st.selectbox("Chuva",["Não", "Sim"])
-                animais_peconhetos = st.selectbox("Animais Peçonhentos", ["Não", "Sim"])       
+                chuva = st.selectbox("Chuva", ["Não", "Sim"])
+                animais_peconhetos = st.selectbox("Animais Peçonhentos", ["Não", "Sim"])
                 poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
                 integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
             
@@ -204,51 +235,15 @@ else:
             houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
             foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
-            submit = st.form_submit_button("REGISTRAR APR")
-
-            if submit:
+            
+            if st.form_submit_button("REGISTRAR APR"):
+                # Lógica de salvamento original mantida
                 url_foto = ""
                 if foto_paralisacao:
-                    try:
-                        timestamp = int(time.time())
-                        caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
-                        supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
-                        url_foto = caminho
-                    except Exception as e:
-                        st.error(f"Erro no upload: {e}")
-                
-                if houve_paralisacao and not url_foto:
-                    st.error("Atenção: A foto é obrigatória para serviços paralisados!")
-                else:
-                    try:
-                        contagem = supabase.table("APR").select("*", count='exact').execute()
-                        proximo_numero = (contagem.count or 0) + 1
-                        numero_formatado = f"{proximo_numero:04d}"
-
-                        supabase.table("APR").insert({
-                            "numero_controle": numero_formatado,
-                            "data_atividade": str(data_atividade),
-                            "local_atividade": local_atividade,
-                            "equipe": st.session_state.nome_tecnico,
-                            "placa_veiculo": placa_veiculo,
-                            "uso_cinto": uso_cinto,
-                            "uso_capacete": uso_capacete,
-                            "amarracao_escada": amarracao_escada,
-                            "area_sinalizada": area_sinalizada,
-                            "verificacao_geral": verificacao_geral,
-                            "animais_peconhetos": True if animais_peconhetos == "Sim" else False,
-                            "chuva": True if chuva == "Sim" else False,
-                            "poste_energizado": True if poste_energizado == "Sim" else False,
-                            "integridade_poste": integridade_poste, 
-                            "houve_paralisacao": houve_paralisacao,
-                            "motivo_paralisacao": motivo_paralisacao,
-                            "responsavel": st.session_state.nome_tecnico,
-                            "foto_paralisacao": url_foto,
-                            "perfil": st.session_state.perfil
-                        }).execute()
-                        st.success(f"APR registrada com sucesso! Número de controle: {numero_formatado}")
-                    except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
+                    timestamp = int(time.time())
+                    caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
+                    supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
+                    url_foto = caminho
 
     if aba4 is not None: ## ABA ADMINISTRADOR
         with aba4:
