@@ -118,17 +118,22 @@ else:
             observacao = st.text_area("OBSERVAÇÃO")
             foto_arquivo = st.file_uploader("FOTO DO SERVIÇO", type=['jpg', 'png', 'jpeg'])
             
+            # --- SUBSTITUA A PARTIR DAQUI ---
             if st.form_submit_button("REGISTRAR ATENDIMENTO"):
-                url_foto = ""
-                if foto_arquivo:
-                    try:
-                        timestamp = int(time.time())
-                        caminho = f"fotos/{timestamp}_{foto_arquivo.name}"
-                        supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_arquivo.getvalue())
-                        url_foto = caminho
-                    except Exception as e:
-                        st.error(f"Erro ao subir foto: {e}")
-                
+                # Validação de obrigatoriedade
+                if not cliente or not endereco or not protocolo or not metragem_cabo:
+                    st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
+                else:
+                    url_foto = ""
+                    if foto_arquivo:
+                        try:
+                            timestamp = int(time.time())
+                            caminho = f"fotos/{timestamp}_{foto_arquivo.name}"
+                            supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_arquivo.getvalue())
+                            url_foto = caminho
+                        except Exception as e:
+                            st.error(f"Erro ao subir foto: {e}")
+                            
                 # Chamada corrigida com os dados da sessão
                 if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto, st.session_state.nome_tecnico, st.session_state.cpf_tecnico, metragem_cabo):
                     st.success("Atendimento registrado com sucesso!")
