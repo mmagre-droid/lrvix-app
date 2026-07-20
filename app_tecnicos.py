@@ -106,7 +106,7 @@ else:
         with st.form("form_atendimento", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
-                data_execucao = st.date_input("DATA DA EXECUÇÃO")
+                data_execucao = st.date_input("DATA DA EXECUÇÃO", format="DD/MM/YYYY")
                 cliente = st.text_input("NOME DO CLIENTE")
                 endereco = st.text_input("ENDEREÇO")
                 metragem_cabo = st.text_input("CABO UTILIZADO")
