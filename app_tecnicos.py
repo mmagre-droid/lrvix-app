@@ -118,9 +118,9 @@ else:
             observacao = st.text_area("OBSERVAÇÃO")
             foto_arquivo = st.file_uploader("FOTO DO SERVIÇO", type=['jpg', 'png', 'jpeg'])
             
-            # --- SUBSTITUA A PARTIR DAQUI ---
+            # Botão de envio
             if st.form_submit_button("REGISTRAR ATENDIMENTO"):
-                # Validação de obrigatoriedade
+                # Validação de campos obrigatórios
                 if not cliente or not endereco or not protocolo or not metragem_cabo:
                     st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
                 else:
@@ -133,10 +133,23 @@ else:
                             url_foto = caminho
                         except Exception as e:
                             st.error(f"Erro ao subir foto: {e}")
-                            
-                # Chamada corrigida com os dados da sessão
-                if registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, url_foto, st.session_state.nome_tecnico, st.session_state.cpf_tecnico, metragem_cabo):
-                    st.success("Atendimento registrado com sucesso!")
+                    
+                    # Chamada da função com a ordem exata da definição no topo do arquivo
+                    # Certifique-se de que a ordem aqui seja: data, cliente, end, prot, merc, tipo, obs, foto, nome, cpf, cabo
+                    if registrar_atendimento(
+                        data_execucao, 
+                        cliente, 
+                        endereco, 
+                        protocolo, 
+                        mercado, 
+                        tipo_servico, 
+                        observacao, 
+                        url_foto, 
+                        st.session_state.nome_tecnico, 
+                        st.session_state.cpf_tecnico, 
+                        metragem_cabo
+                    ):
+                        st.success("Atendimento registrado com sucesso!")
     with aba2: ## ABA ATENDIMENTO
         st.subheader("Lista de Atendimentos")
         
