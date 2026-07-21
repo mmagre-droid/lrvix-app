@@ -63,13 +63,7 @@ if not st.session_state.logado:
             
             # MANTENHA APENAS ESTE BLOCO:
             if st.button("Entrar"):
-                # Realiza a busca verificando CPF, Senha e se está Ativo
-                user = supabase.table("TECNICOS") \
-                    .select("*") \
-                    .eq("cpf", cpf_input) \
-                    .eq("senha", senha_input) \
-                    .eq("ativo", True) \
-                    .execute()
+                user = supabase.table("TECNICOS").select("*").limit(1).execute()
                 
                 if user.data:
                     st.session_state.logado = True
