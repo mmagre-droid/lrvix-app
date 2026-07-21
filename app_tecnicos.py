@@ -339,7 +339,12 @@ else:
         
         with st.expander("📂 APRs Cadastradas", expanded=False):
             try:
-                lista_aprs = supabase.table("APR").select("id, numero_controle").order("numero_controle", desc=True).execute()
+                query_aprs = supabase.table("APR").select("id, numero_controle")
+                
+                if st.session_state.get("perfil") != "Administrador":
+                    query_aprs = query_aprs.eq("cpf_tecnico", st.session_state.get("cpf_tecnico", ""))
+                
+                lista_aprs = query_aprs.order("numero_controle", desc=True).execute()
                 
                 if lista_aprs.data:
                     cols = st.columns(4)
@@ -400,7 +405,8 @@ else:
                         st.error(f"Erro ao subir foto: {e}")
                 
                 try:
-                    # Inserindo os dados na tabela APR do Supabase
+                    cpf_logado = st.session_state.get("cpf_tecnico", "")
+
                     resposta = supabase.table("APR").insert({
                         "data_atividade": str(data_atividade),
                         "local_atividade": local_atividade,
@@ -417,14 +423,14 @@ else:
                         "houve_paralisacao": "Sim" if houve_paralisacao else "Não",
                         "motivo_paralisacao": motivo_paralisacao,
                         "foto_ocorrencia": url_foto,
-                        "cpf_tecnico": st.session_state.get("cpf_tecnico", "")
+                        "cpf_tecnico": cpf_logado
                     }).execute()
                     
                     st.success("APR registrada com sucesso!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar APR no banco: {e}")
-
+                    
     if aba4 is not None: 
         with aba4:
             st.subheader("⚙️ PAINEL ADMINISTRATIVO")
