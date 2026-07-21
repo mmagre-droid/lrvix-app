@@ -54,31 +54,32 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
         st.error(f"Erro ao salvar: {e}")
         return False
 
-# --- INTERFACE ---
 if not st.session_state.logado:
     tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
     with tab1:
         cpf_input = st.text_input("CPF")
         senha_input = st.text_input("Senha", type="password", key="login_senha")
             
-        # MANTENHA APENAS ESTE BLOCO:
         if st.button("Entrar"):
-            # Realiza a busca verificando CPF, Senha e se está Ativo
-            user = supabase.table("TECNICOS") \
-                .select("*") \
-                .eq("cpf", cpf_input) \
-                .eq("senha", senha_input) \
-                .eq("ativo", True) \
-                .execute()
+            try:
+                # Busca apenas pelo CPF primeiro para evitar erro de tipo na query encadeada
+                user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
                 
-            if user.data:
-                st.session_state.logado = True
-                st.session_state.nome_tecnico = user.data[0]["nome"]
-                st.session_state.perfil = user.data[0]["perfil"]
-                st.session_state.cpf_tecnico = user.data[0]["cpf"]
-                st.rerun()
-            else:
-                st.error("CPF ou Senha incorretos, ou usuário inativo.")
+                # Valida se encontrou o usuário e se a senha confere no Python
+                if user_query.data and str(user_query.data[0].get("senha")) == str(senha_input).strip():
+                    dados_user = user_query.data[0]
+                    if dados_user.get("ativo") is True:
+                        st.session_state.logado = True
+                        st.session_state.nome_tecnico = dados_user["nome"]
+                        st.session_state.perfil = dados_user["perfil"]
+                        st.session_state.cpf_tecnico = dados_user["cpf"]
+                        st.rerun()
+                    else:
+                        st.error("⚠️ Este usuário está inativo.")
+                else:
+                    st.error("❌ CPF ou Senha incorretos.")
+            except Exception as e:
+                st.error(f"Erro na conexão com o banco: {e}")
     with tab2:
         nome = st.text_input("Nome Completo")
         cpf = st.text_input("CPF (somente números)")
