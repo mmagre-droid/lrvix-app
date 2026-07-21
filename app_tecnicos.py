@@ -58,9 +58,13 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
 # Função para gerar o PDF da APR corretamente
 def gerar_pdf_apr(apr_id):
     try:
+        # Cria a pasta 'aprs_geradas' caso ela não exista
+        pasta_destino = "aprs_geradas"
+        os.makedirs(pasta_destino, exist_ok=True)
+        
         dados_apr = supabase.table("APR").select("*").eq("id", apr_id).execute()
         
-        nome_arquivo = f"apr_{apr_id}.pdf"
+        nome_arquivo = os.path.join(pasta_destino, f"apr_{apr_id}.pdf")
         c = canvas.Canvas(nome_arquivo, pagesize=letter)
         
         if dados_apr.data:
@@ -100,12 +104,13 @@ def gerar_pdf_apr(apr_id):
         c.save()
         return nome_arquivo
     except Exception as e:
-        nome_arquivo = "erro_apr.pdf"
+        pasta_destino = "aprs_geradas"
+        os.makedirs(pasta_destino, exist_ok=True)
+        nome_arquivo = os.path.join(pasta_destino, "erro_apr.pdf")
         c = canvas.Canvas(nome_arquivo, pagesize=letter)
         c.drawString(50, 750, f"Erro ao gerar PDF: {str(e)}")
         c.save()
         return nome_arquivo
-
 if not st.session_state.logado:
     tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
     with tab1:
