@@ -391,10 +391,39 @@ else:
             if st.form_submit_button("REGISTRAR APR"):
                 url_foto = ""
                 if foto_paralisacao:
-                    timestamp = int(time.time())
-                    caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
-                    supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
-                    url_foto = caminho
+                    try:
+                        timestamp = int(time.time())
+                        caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
+                        supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
+                        url_foto = caminho
+                    except Exception as e:
+                        st.error(f"Erro ao subir foto: {e}")
+                
+                try:
+                    # Inserindo os dados na tabela APR do Supabase
+                    resposta = supabase.table("APR").insert({
+                        "data_atividade": str(data_atividade),
+                        "local_atividade": local_atividade,
+                        "placa_veiculo": placa_veiculo,
+                        "uso_cinto": "Sim" if uso_cinto else "Não",
+                        "uso_capacete": "Sim" if uso_capacete else "Não",
+                        "amarracao_escada": "Sim" if amarracao_escada else "Não",
+                        "area_sinalizada": "Sim" if area_sinalizada else "Não",
+                        "verificacao_geral": "Sim" if verificacao_geral else "Não",
+                        "chuva": chuva,
+                        "animais_peconhetos": animais_peconhetos,
+                        "poste_energizado": poste_energizado,
+                        "integridade_poste": integridade_poste,
+                        "houve_paralisacao": "Sim" if houve_paralisacao else "Não",
+                        "motivo_paralisacao": motivo_paralisacao,
+                        "foto_ocorrencia": url_foto,
+                        "cpf_tecnico": st.session_state.get("cpf_tecnico", "")
+                    }).execute()
+                    
+                    st.success("APR registrada com sucesso!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar APR no banco: {e}")
 
     if aba4 is not None: 
         with aba4:
