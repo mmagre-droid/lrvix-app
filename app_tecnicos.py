@@ -111,6 +111,7 @@ def gerar_pdf_apr(apr_id):
         c.drawString(50, 750, f"Erro ao gerar PDF: {str(e)}")
         c.save()
         return nome_arquivo
+    
 if not st.session_state.logado:
     tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
     with tab1:
@@ -225,7 +226,7 @@ else:
         else:
             st.info("Nenhum atendimento registrado.")
 
-   with aba3:
+    with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
         with st.expander("📂 APRs Cadastradas", expanded=True):
