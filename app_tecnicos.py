@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import time
 from supabase import create_client
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import os
 
 # --- CONFIGURAÇÃO ---
 url = st.secrets["SUPABASE_URL"]
@@ -52,9 +55,32 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
         st.error(f"Erro ao salvar: {e}")
         return False
 
-# Função genérica simulada para gerar PDF de APR (caso ainda vá implementar)
+# Função para gerar o PDF da APR corretamente
 def gerar_pdf_apr(apr_id):
-    return "apr_gerada.pdf"
+    try:
+        dados_apr = supabase.table("APR").select("*").eq("id", apr_id).execute()
+        
+        nome_arquivo = f"apr_{apr_id}.pdf"
+        c = canvas.Canvas(nome_arquivo, pagesize=letter)
+        
+        if dados_apr.data:
+            item = dados_apr.data[0]
+            c.drawString(100, 750, "--- ANÁLISE PRELIMINAR DE RISCO (APR) ---")
+            c.drawString(100, 720, f"Número de Controle: {item.get('numero_controle', 'N/A')}")
+            c.drawString(100, 700, f"Data da Atividade: {item.get('data_atividade', 'N/A')}")
+            c.drawString(100, 680, f"Local: {item.get('local_atividade', 'N/A')}")
+            c.drawString(100, 660, f"Placa do Veículo: {item.get('placa_veiculo', 'N/A')}")
+        else:
+            c.drawString(100, 750, "Detalhes da APR não encontrados no banco.")
+            
+        c.save()
+        return nome_arquivo
+    except Exception as e:
+        nome_arquivo = "erro_apr.pdf"
+        c = canvas.Canvas(nome_arquivo, pagesize=letter)
+        c.drawString(100, 750, f"Erro ao gerar PDF: {str(e)}")
+        c.save()
+        return nome_arquivo
 
 if not st.session_state.logado:
     tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
@@ -152,7 +178,7 @@ else:
                     ):
                         st.success("Atendimento registrado com sucesso!")
             
-    with aba2: ## ABA ATENDIMENTO
+    with aba2: 
         st.subheader("Lista de Atendimentos")
         
         query = supabase.table("ATENDIMENTO").select("*")
@@ -232,7 +258,7 @@ else:
                     supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
                     url_foto = caminho
 
-    if aba4 is not None: ## ABA ADMINISTRADOR
+    if aba4 is not None: 
         with aba4:
             st.subheader("⚙️ PAINEL ADMINISTRATIVO")
             
