@@ -58,52 +58,160 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
 # Função para gerar o PDF da APR corretamente
 def gerar_pdf_apr(apr_id):
     try:
-        # Cria a pasta 'aprs_geradas' caso ela não exista
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+        
         pasta_destino = "aprs_geradas"
         os.makedirs(pasta_destino, exist_ok=True)
         
         dados_apr = supabase.table("APR").select("*").eq("id", apr_id).execute()
-        
         nome_arquivo = os.path.join(pasta_destino, f"apr_{apr_id}.pdf")
-        c = canvas.Canvas(nome_arquivo, pagesize=letter)
         
+        # Configuração do documento (Margens otimizadas para ocupar melhor a folha)
+        doc = SimpleDocTemplate(
+            nome_arquivo, 
+            pagesize=letter,
+            rightMargin=30, leftMargin=30,
+            topMargin=30, bottomMargin=30
+        )
+        
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Estilos personalizados para padronizar o visual
+        estilo_titulo = ParagraphStyle(
+            'TituloPrincipal',
+            parent=styles['Heading1'],
+            fontName='Helvetica-Bold',
+            fontSize=14,
+            textColor=colors.HexColor('#1f2937'),
+            alignment=1, # Centralizado
+            spaceAfter=10
+        )
+        
+        estilo_secao = ParagraphStyle(
+            'TituloSecao',
+            parent=styles['Heading2'],
+            fontName='Helvetica-Bold',
+            fontSize=11,
+            textColor=colors.HexColor('#ffffff'),
+            spaceBefore=0,
+            spaceAfter=0
+        )
+        
+        estilo_texto = ParagraphStyle(
+            'TextoNormal',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            textColor=colors.HexColor('#374151')
+        )
+        
+        estilo_texto_bold = ParagraphStyle(
+            'TextoBold',
+            parent=estilo_texto,
+            fontName='Helvetica-Bold'
+        )
+
         if dados_apr.data:
             item = dados_apr.data[0]
-            
-            # Cabeçalho
-            c.drawString(50, 750, "--- ANÁLISE PRELIMINAR DE RISCO (APR) ---")
-            
-            # Dados Gerais
             num_controle = item.get('numero_controle') or item.get('id') or 'N/A'
-            c.drawString(50, 720, f"Número de Controle: {num_controle}")
-            c.drawString(50, 700, f"Data da Atividade: {item.get('data_atividade', 'N/A')}")
-            c.drawString(50, 680, f"Local: {item.get('local_atividade', 'N/A')}")
-            c.drawString(50, 660, f"Placa do Veículo: {item.get('placa_veiculo', 'N/A')}")
             
-            # Checklist
-            c.drawString(50, 620, "--- CHECKLIST DETALHADO ---")
-            c.drawString(50, 600, f"Cinto de Segurança: {item.get('uso_cinto', 'N/A')}")
-            c.drawString(50, 580, f"Capacete Classe B: {item.get('uso_capacete', 'N/A')}")
-            c.drawString(50, 560, f"Amarração da Escada: {item.get('amarracao_escada', 'N/A')}")
-            c.drawString(50, 540, f"Sinalização da Área: {item.get('area_sinalizada', 'N/A')}")
-            c.drawString(50, 520, f"Verificação Geral: {item.get('verificacao_geral', 'N/A')}")
+            # --- CABEÇALHO ---
+            story.append(Paragraph("<b>LRVIX - SISTEMA DE GESTÃO TÉCNICA</b>", estilo_titulo))
+            story.append(Paragraph(f"<b>ANÁLISE PRELIMINAR DE RISCO (APR) - Nº {num_controle}</b>", estilo_titulo))
+            story.append(Spacer(1, 10))
             
-            c.drawString(300, 600, f"Chuva: {item.get('chuva', 'N/A')}")
-            c.drawString(300, 580, f"Animais Peçonhentos: {item.get('animais_peconhetos', 'N/A')}")
-            c.drawString(300, 560, f"Poste Energizado: {item.get('poste_energizado', 'N/A')}")
-            c.drawString(300, 540, f"Integridade do Poste: {item.get('integridade_poste', 'N/A')}")
+            # --- BLOCO 1: DADOS GERAIS ---
+            dados_gerais = [
+                [Paragraph("<b>DADOS DA ATIVIDADE</b>", estilo_secao), ""],
+                [Paragraph(f"<b>Data da Atividade:</b> {item.get('data_atividade', 'N/A')}", estilo_texto), 
+                 Paragraph(f"<b>Placa do Veículo:</b> {item.get('placa_veiculo', 'N/A')}", estilo_texto)],
+                [Paragraph(f"<b>Local da Atividade:</b> {item.get('local_atividade', 'N/A')}", estilo_texto), ""]
+            ]
             
-            # Paralisação
-            c.drawString(50, 480, "--- PARALISAÇÃO ---")
-            c.drawString(50, 460, f"Houve Interrupção: {item.get('houve_paralisacao', 'N/A')}")
-            c.drawString(50, 440, f"Motivo: {item.get('motivo_paralisacao', 'N/A')}")
+            tabela_geral = Table(dados_gerais, colWidths=[270, 270])
+            tabela_geral.setStyle(TableStyle([
+                ('SPAN', (0, 0), (1, 0)), # Mescla o cabeçalho da seção
+                ('SPAN', (0, 2), (1, 2)), # Mescla o local para ocupar a largura toda
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')), # Cor de fundo do cabeçalho
+                ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ]))
+            story.append(tabela_geral)
+            story.append(Spacer(1, 15))
+            
+            # --- BLOCO 2: CHECKLIST DETALHADO ---
+            dados_checklist = [
+                [Paragraph("<b>CHECKLIST DE SEGURANÇA E CONDIÇÕES</b>", estilo_secao), ""],
+                [Paragraph("<b>Item de Verificação</b>", estilo_texto_bold), Paragraph("<b>Status / Resposta</b>", estilo_texto_bold)],
+                [Paragraph("Cinto de Segurança", estilo_texto), Paragraph(str(item.get('uso_cinto', 'N/A')), estilo_texto)],
+                [Paragraph("Capacete Classe B", estilo_texto), Paragraph(str(item.get('uso_capacete', 'N/A')), estilo_texto)],
+                [Paragraph("Amarração da Escada", estilo_texto), Paragraph(str(item.get('amarracao_escada', 'N/A')), estilo_texto)],
+                [Paragraph("Sinalização da Área", estilo_texto), Paragraph(str(item.get('area_sinalizada', 'N/A')), estilo_texto)],
+                [Paragraph("Verificação Geral", estilo_texto), Paragraph(str(item.get('verificacao_geral', 'N/A')), estilo_texto)],
+                [Paragraph("Chuva", estilo_texto), Paragraph(str(item.get('chuva', 'N/A')), estilo_texto)],
+                [Paragraph("Animais Peçonhentos", estilo_texto), Paragraph(str(item.get('animais_peconhetos', 'N/A')), estilo_texto)],
+                [Paragraph("Poste Energizado", estilo_texto), Paragraph(str(item.get('poste_energizado', 'N/A')), estilo_texto)],
+                [Paragraph("Integridade do Poste", estilo_texto), Paragraph(str(item.get('integridade_poste', 'N/A')), estilo_texto)],
+            ]
+            
+            tabela_check = Table(dados_checklist, colWidths=[350, 190])
+            tabela_check.setStyle(TableStyle([
+                ('SPAN', (0, 0), (1, 0)),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')),
+                ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#e5e7eb')), # Fundo cinza claro para o cabeçalho da tabela
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ]))
+            story.append(tabela_check)
+            story.append(Spacer(1, 15))
+            
+            # --- BLOCO 3: PARALISAÇÃO ---
+            dados_paralisacao = [
+                [Paragraph("<b>STATUS DE INTERRUPÇÃO / PARALISAÇÃO</b>", estilo_secao), ""],
+                [Paragraph(f"<b>Houve Interrupção das Atividades:</b> {item.get('houve_paralisacao', 'N/A')}", estilo_texto), ""],
+                [Paragraph(f"<b>Motivo da Paralisação:</b><br/>{item.get('motivo_paralisacao') or 'Nenhum motivo informado.'}", estilo_texto), ""]
+            ]
+            
+            tabela_paralisa = Table(dados_paralisacao, colWidths=[540, 0])
+            tabela_paralisa.setStyle(TableStyle([
+                ('SPAN', (0, 0), (1, 0)),
+                ('SPAN', (0, 1), (1, 1)),
+                ('SPAN', (0, 2), (1, 2)),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ]))
+            story.append(tabela_paralisa)
             
         else:
-            c.drawString(50, 750, "Detalhes da APR não encontrados no banco.")
+            story.append(Paragraph("Detalhes da APR não encontrados no banco.", estilo_texto))
             
-        c.save()
+        doc.build(story)
         return nome_arquivo
+        
     except Exception as e:
+        # Fallback de segurança caso ocorra algum erro na estilização
         pasta_destino = "aprs_geradas"
         os.makedirs(pasta_destino, exist_ok=True)
         nome_arquivo = os.path.join(pasta_destino, "erro_apr.pdf")
