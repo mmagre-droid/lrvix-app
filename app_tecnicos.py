@@ -1,4 +1,4 @@
-mport streamlit as st
+import streamlit as st
 from supabase import create_client, ClientOptions
 import time
 import pandas as pd
