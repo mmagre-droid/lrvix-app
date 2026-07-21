@@ -1,3 +1,4 @@
+Python
 import streamlit as st
 from supabase import create_client, ClientOptions
 import time
@@ -58,27 +59,27 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
 if not st.session_state.logado:
     tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
     with tab1:
-            cpf_input = st.text_input("CPF")
-            senha_input = st.text_input("Senha", type="password", key="login_senha")
+        cpf_input = st.text_input("CPF")
+        senha_input = st.text_input("Senha", type="password", key="login_senha")
             
-           # MANTENHA APENAS ESTE BLOCO:
-            if st.button("Entrar"):
-                # Realiza a busca verificando CPF, Senha e se está Ativo
-                user = supabase.table("TECNICOS") \
-                    .select("*") \
-                    .eq("cpf", cpf_input) \
-                    .eq("senha", senha_input) \
-                    .eq("ativo", True) \
-                    .execute()
+        # MANTENHA APENAS ESTE BLOCO:
+        if st.button("Entrar"):
+            # Realiza a busca verificando CPF, Senha e se está Ativo
+            user = supabase.table("TECNICOS") \
+                .select("*") \
+                .eq("cpf", cpf_input) \
+                .eq("senha", senha_input) \
+                .eq("ativo", True) \
+                .execute()
                 
-                if user.data:
-                    st.session_state.logado = True
-                    st.session_state.nome_tecnico = user.data[0]["nome"]
-                    st.session_state.perfil = user.data[0]["perfil"]
-                    st.session_state.cpf_tecnico = user.data[0]["cpf"]
-                    st.rerun()
-                else:
-                    st.error("CPF ou Senha incorretos, ou usuário inativo.")
+            if user.data:
+                st.session_state.logado = True
+                st.session_state.nome_tecnico = user.data[0]["nome"]
+                st.session_state.perfil = user.data[0]["perfil"]
+                st.session_state.cpf_tecnico = user.data[0]["cpf"]
+                st.rerun()
+            else:
+                st.error("CPF ou Senha incorretos, ou usuário inativo.")
     with tab2:
         nome = st.text_input("Nome Completo")
         cpf = st.text_input("CPF (somente números)")
