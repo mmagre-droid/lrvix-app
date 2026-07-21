@@ -422,7 +422,7 @@ else:
                         "integridade_poste": integridade_poste,
                         "houve_paralisacao": "Sim" if houve_paralisacao else "Não",
                         "motivo_paralisacao": motivo_paralisacao,
-                        "foto_ocorrencia": url_foto,
+                        "foto_paralisacao": url_foto,
                         "cpf_tecnico": cpf_logado
                     }).execute()
                     
