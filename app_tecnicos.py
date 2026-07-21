@@ -1,5 +1,5 @@
-import streamlit as st
-from supabase import create_client
+mport streamlit as st
+from supabase import create_client, ClientOptions
 import time
 import pandas as pd
 from fpdf import FPDF
@@ -8,7 +8,9 @@ import os
 # --- CONFIGURAÇÃO ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
-supabase = create_client(url, key)
+
+# Inicialização com os cabeçalhos forçados para aceitar a nova chave do Supabase
+supabase = create_client(url, key, options=ClientOptions(headers={"apikey": key}))
 
 st.title("🔐 Acesso LRVIX")
 
