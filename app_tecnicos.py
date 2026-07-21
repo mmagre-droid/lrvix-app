@@ -68,7 +68,6 @@ if not st.session_state.logado:
                     .select("*") \
                     .eq("cpf", cpf_input) \
                     .eq("senha", senha_input) \
-                    .eq("ativo", True) \
                     .execute()
                 
                 if user.data:
