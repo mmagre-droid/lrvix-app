@@ -337,7 +337,7 @@ else:
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
-        with st.expander("📂 APRs Cadastradas", expanded=True):
+        with st.expander("📂 APRs Cadastradas", expanded=False):
             try:
                 lista_aprs = supabase.table("APR").select("id, numero_controle").order("numero_controle", desc=True).execute()
                 
