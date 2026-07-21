@@ -225,30 +225,30 @@ else:
         else:
             st.info("Nenhum atendimento registrado.")
 
-    with aba3:
+   with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
-        st.write("### 📂 APRs Cadastradas")
-        try:
-            lista_aprs = supabase.table("APR").select("id, numero_controle").order("numero_controle", desc=True).execute()
-            
-            if lista_aprs.data:
-                cols = st.columns(4)
-                for i, item in enumerate(lista_aprs.data):
-                    with cols[i % 4]:
-                        if st.button(f"📄 APR {item['numero_controle']}", key=f"apr_{item['id']}"):
-                            arquivo = gerar_pdf_apr(item['id'])
-                            with open(arquivo, "rb") as f:
-                                st.download_button(
-                                    label="📥 BAIXAR PDF",
-                                    data=f,
-                                    file_name=arquivo,
-                                    mime="application/pdf"
-                                )
-            else:
-                st.info("Nenhuma APR cadastrada.")
-        except Exception as e:
-            st.error(f"Erro ao listar APRs: {e}")
+        with st.expander("📂 APRs Cadastradas", expanded=True):
+            try:
+                lista_aprs = supabase.table("APR").select("id, numero_controle").order("numero_controle", desc=True).execute()
+                
+                if lista_aprs.data:
+                    cols = st.columns(4)
+                    for i, item in enumerate(lista_aprs.data):
+                        with cols[i % 4]:
+                            if st.button(f"📄 APR {item['numero_controle']}", key=f"apr_{item['id']}"):
+                                arquivo = gerar_pdf_apr(item['id'])
+                                with open(arquivo, "rb") as f:
+                                    st.download_button(
+                                        label="📥 BAIXAR PDF",
+                                        data=f,
+                                        file_name=arquivo,
+                                        mime="application/pdf"
+                                    )
+                else:
+                    st.info("Nenhuma APR cadastrada.")
+            except Exception as e:
+                st.error(f"Erro ao listar APRs: {e}")
 
         st.divider()
         
