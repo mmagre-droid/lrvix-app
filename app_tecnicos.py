@@ -65,20 +65,44 @@ def gerar_pdf_apr(apr_id):
         
         if dados_apr.data:
             item = dados_apr.data[0]
-            c.drawString(100, 750, "--- ANÁLISE PRELIMINAR DE RISCO (APR) ---")
-            c.drawString(100, 720, f"Número de Controle: {item.get('numero_controle', 'N/A')}")
-            c.drawString(100, 700, f"Data da Atividade: {item.get('data_atividade', 'N/A')}")
-            c.drawString(100, 680, f"Local: {item.get('local_atividade', 'N/A')}")
-            c.drawString(100, 660, f"Placa do Veículo: {item.get('placa_veiculo', 'N/A')}")
+            
+            # Cabeçalho
+            c.drawString(50, 750, "--- ANÁLISE PRELIMINAR DE RISCO (APR) ---")
+            
+            # Dados Gerais
+            num_controle = item.get('numero_controle') or item.get('id') or 'N/A'
+            c.drawString(50, 720, f"Número de Controle: {num_controle}")
+            c.drawString(50, 700, f"Data da Atividade: {item.get('data_atividade', 'N/A')}")
+            c.drawString(50, 680, f"Local: {item.get('local_atividade', 'N/A')}")
+            c.drawString(50, 660, f"Placa do Veículo: {item.get('placa_veiculo', 'N/A')}")
+            
+            # Checklist
+            c.drawString(50, 620, "--- CHECKLIST DETALHADO ---")
+            c.drawString(50, 600, f"Cinto de Segurança: {item.get('uso_cinto', 'N/A')}")
+            c.drawString(50, 580, f"Capacete Classe B: {item.get('uso_capacete', 'N/A')}")
+            c.drawString(50, 560, f"Amarração da Escada: {item.get('amarracao_escada', 'N/A')}")
+            c.drawString(50, 540, f"Sinalização da Área: {item.get('area_sinalizada', 'N/A')}")
+            c.drawString(50, 520, f"Verificação Geral: {item.get('verificacao_geral', 'N/A')}")
+            
+            c.drawString(300, 600, f"Chuva: {item.get('chuva', 'N/A')}")
+            c.drawString(300, 580, f"Animais Peçonhentos: {item.get('animais_peconhetos', 'N/A')}")
+            c.drawString(300, 560, f"Poste Energizado: {item.get('poste_energizado', 'N/A')}")
+            c.drawString(300, 540, f"Integridade do Poste: {item.get('integridade_poste', 'N/A')}")
+            
+            # Paralisação
+            c.drawString(50, 480, "--- PARALISAÇÃO ---")
+            c.drawString(50, 460, f"Houve Interrupção: {item.get('houve_paralisacao', 'N/A')}")
+            c.drawString(50, 440, f"Motivo: {item.get('motivo_paralisacao', 'N/A')}")
+            
         else:
-            c.drawString(100, 750, "Detalhes da APR não encontrados no banco.")
+            c.drawString(50, 750, "Detalhes da APR não encontrados no banco.")
             
         c.save()
         return nome_arquivo
     except Exception as e:
         nome_arquivo = "erro_apr.pdf"
         c = canvas.Canvas(nome_arquivo, pagesize=letter)
-        c.drawString(100, 750, f"Erro ao gerar PDF: {str(e)}")
+        c.drawString(50, 750, f"Erro ao gerar PDF: {str(e)}")
         c.save()
         return nome_arquivo
 
