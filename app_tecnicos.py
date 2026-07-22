@@ -1,221 +1,379 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-from supabase import create_client, Client
+import time
+from supabase import create_client
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import os
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(
-    page_title="LRVIX - Controle Operacional",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# --- ESTILIZAÇÃO CSS (PADRÃO BRANCO E AZUL) ---
-st.markdown("""
-    <style>
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
-        
-        .stApp {
-            background-color: #ffffff;
-            color: #1e293b;
-        }
-        
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-        }
-        
-        .stButton>button {
-            width: 100%;
-            border-radius: 6px;
-            font-weight: bold;
-            height: 42px;
-            background-color: #0284c7;
-            color: white;
-            border: none;
-        }
-        .stButton>button:hover {
-            background-color: #0369a1;
-            color: white;
-        }
-        
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-        }
-        .stTabs [data-baseweb="tab"] {
-            background-color: #f0f9ff;
-            border-radius: 6px 6px 0px 0px;
-            color: #0369a1;
-            font-weight: bold;
-        }
-        .stTabs [aria-selected="true"] {
-            background-color: #0284c7 !important;
-            color: white !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- CONEXÃO COM O SUPABASE ---
+# --- CONFIGURAÇÃO ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
-supabase: Client = create_client(url, key)
 
-# --- CONTROLE DE SESSÃO DE LOGIN ---
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
-if "perfil" not in st.session_state:
-    st.session_state.perfil = None
-if "cpf_tecnico" not in st.session_state:
-    st.session_state.cpf_tecnico = None
-if "nome_tecnico" not in st.session_state:
-    st.session_state.nome_tecnico = None
+# Inicialização do Cliente Supabase
+supabase = create_client(url, key)
 
-# --- TELA DE LOGIN ---
-if not st.session_state.autenticado:
-    col1, col2, col3 = st.columns([1, 1.2, 1])
-    
-    with col2:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align: center; color: #0284c7;'>⚡ LRVIX Telecom</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #64748b;'>Sistema de Controle Operacional e APR</p>", unsafe_allow_html=True)
+st.title("🔐 Acesso LRVIX")
+
+# Inicialização do estado
+if "logado" not in st.session_state:
+    st.session_state.logado = False
+if "modo_admin" not in st.session_state:
+    st.session_state.modo_admin = False
+
+# --- FUNÇÕES ---
+def cadastrar_tecnico(nome, cpf, email, telefone, senha):
+    existe = supabase.table("TECNICOS").select("cpf").eq("cpf", cpf).execute()
+    if existe.data:
+        st.error("⚠️ Este CPF já está cadastrado!")
+        return False
+    try:
+        supabase.table("TECNICOS").insert({"nome": nome, "cpf": cpf, "email": email, "telefone": telefone, "senha": senha, "perfil": "Técnico"}).execute()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao cadastrar: {e}")
+        return False
+
+# Função para incluir atendimento (agora recebendo a lista de fotos)
+def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico, metragem_cabo):
+    try:
+        supabase.table("ATENDIMENTO").insert({
+            "data_execucao": str(data_execucao),
+            "cliente": cliente,
+            "endereco": endereco,
+            "protocolo": protocolo,
+            "mercado": mercado,
+            "tipo_servico": tipo_servico,
+            "observacao": observacao,
+            "foto": foto_url, # Salva a lista de caminhos das fotos no banco
+            "responsavel": nome_tecnico,
+            "cpf_tecnico": cpf_tecnico,
+            "metragem_cabo": metragem_cabo
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao salvar: {e}")
+        return False
+
+# Função para gerar o PDF da APR corretamente
+def gerar_pdf_apr(apr_id):
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+        import os
         
-        with st.container():
-            st.markdown("---")
-            cpf_input = st.text_input("CPF do Técnico ou Administrador", placeholder="Digite seu CPF...")
-            senha_input = st.text_input("Senha", type="password", placeholder="Digite sua senha...")
+        pasta_destino = "aprs_geradas"
+        os.makedirs(pasta_destino, exist_ok=True)
+        
+        dados_apr = supabase.table("APR").select("*").eq("id", apr_id).execute()
+        nome_arquivo = os.path.join(pasta_destino, f"apr_{apr_id}.pdf")
+        
+        # Configuração do documento
+        doc = SimpleDocTemplate(
+            nome_arquivo, 
+            pagesize=letter,
+            rightMargin=30, leftMargin=30,
+            topMargin=30, bottomMargin=30
+        )
+        
+        story = []
+        styles = getSampleStyleSheet()
+        
+        estilo_titulo = ParagraphStyle(
+            'TituloPrincipal',
+            parent=styles['Heading1'],
+            fontName='Helvetica-Bold',
+            fontSize=14,
+            textColor=colors.HexColor('#1f2937'),
+            alignment=1,
+            spaceAfter=10
+        )
+        
+        estilo_secao = ParagraphStyle(
+            'TituloSecao',
+            parent=styles['Heading2'],
+            fontName='Helvetica-Bold',
+            fontSize=11,
+            textColor=colors.HexColor('#ffffff'),
+            spaceBefore=0,
+            spaceAfter=0
+        )
+        
+        estilo_texto = ParagraphStyle(
+            'TextoNormal',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            textColor=colors.HexColor('#374151')
+        )
+        
+        estilo_texto_bold = ParagraphStyle(
+            'TextoBold',
+            parent=estilo_texto,
+            fontName='Helvetica-Bold'
+        )
+
+        def traduzir_bool(valor):
+            if isinstance(valor, bool):
+                return "Sim" if valor else "Não"
+            if str(valor).lower() in ["true", "t", "1", "sim"]:
+                return "Sim"
+            if str(valor).lower() in ["false", "f", "0", "não", "nao"]:
+                return "Não"
+            return str(valor)
+
+        if dados_apr.data:
+            item = dados_apr.data[0]
+            num_controle = item.get('numero_controle') or item.get('id') or 'N/A'
+            cpf_tec = item.get('cpf_tecnico', '')
             
-            if st.button("Acessar Sistema", use_container_width=True):
-                if cpf_input and senha_input:
-                    try:
-                        res = supabase.table("tecnicos").select("*").eq("cpf", cpf_input).eq("senha", senha_input).execute()
-                        if res.data:
-                            user = res.data[0]
-                            st.session_state.autenticado = True
-                            st.session_state.perfil = user.get("perfil")
-                            st.session_state.cpf_tecnico = user.get("cpf")
-                            st.session_state.nome_tecnico = user.get("nome")
-                            st.rerun()
-                        else:
-                            st.error("CPF ou senha incorretos.")
-                    except Exception as e:
-                        st.error(f"Erro ao conectar com o banco: {e}")
-                else:
-                    st.warning("Preencha todos os campos.")
-        st.markdown("---")
+            nome_tecnico = "Não informado"
+            if cpf_tec:
+                try:
+                    res_tec = supabase.table("tecnicos").select("nome").eq("cpf", cpf_tec).execute()
+                    if res_tec.data and len(res_tec.data) > 0:
+                        nome_tecnico = res_tec.data[0].get("nome", cpf_tec)
+                    else:
+                        nome_tecnico = cpf_tec
+                except Exception:
+                    nome_tecnico = cpf_tec
+            
+            story.append(Paragraph("<b>LRVIX - SISTEMA DE GESTÃO TÉCNICA</b>", estilo_titulo))
+            story.append(Paragraph(f"<b>ANÁLISE PRELIMINAR DE RISCO (APR) - Nº {num_controle}</b>", estilo_titulo))
+            story.append(Spacer(1, 10))
+            
+            dados_gerais = [
+                [Paragraph("<b>DADOS DA ATIVIDADE</b>", estilo_secao), ""],
+                [Paragraph(f"<b>Data da Atividade:</b> {item.get('data_atividade', 'N/A')}", estilo_texto), 
+                 Paragraph(f"<b>Placa do Veículo:</b> {item.get('placa_veiculo', 'N/A')}", estilo_texto)],
+                [Paragraph(f"<b>Local da Atividade:</b> {item.get('local_atividade', 'N/A')}", estilo_texto), 
+                 Paragraph(f"<b>Técnico Responsável:</b> {nome_tecnico}", estilo_texto)]
+            ]
+            
+            tabela_geral = Table(dados_gerais, colWidths=[270, 270])
+            tabela_geral.setStyle(TableStyle([
+                ('SPAN', (0, 0), (1, 0)),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')),
+                ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ]))
+            story.append(tabela_geral)
+            story.append(Spacer(1, 15))
+            
+            dados_checklist = [
+                [Paragraph("<b>CHECKLIST DE SEGURANÇA E CONDIÇÕES</b>", estilo_secao), ""],
+                [Paragraph("<b>Item de Verificação</b>", estilo_texto_bold), Paragraph("<b>Status / Resposta</b>", estilo_texto_bold)],
+                [Paragraph("Cinto de Segurança", estilo_texto), Paragraph(traduzir_bool(item.get('uso_cinto', 'N/A')), estilo_texto)],
+                [Paragraph("Capacete Classe B", estilo_texto), Paragraph(traduzir_bool(item.get('uso_capacete', 'N/A')), estilo_texto)],
+                [Paragraph("Amarração da Escada", estilo_texto), Paragraph(traduzir_bool(item.get('amarracao_escada', 'N/A')), estilo_texto)],
+                [Paragraph("Sinalização da Área", estilo_texto), Paragraph(traduzir_bool(item.get('area_sinalizada', 'N/A')), estilo_texto)],
+                [Paragraph("Verificação Geral", estilo_texto), Paragraph(traduzir_bool(item.get('verificacao_geral', 'N/A')), estilo_texto)],
+                [Paragraph("Chuva", estilo_texto), Paragraph(traduzir_bool(item.get('chuva', 'N/A')), estilo_texto)],
+                [Paragraph("Animais Peçonhentos", estilo_texto), Paragraph(traduzir_bool(item.get('animais_peconhetos', 'N/A')), estilo_texto)],
+                [Paragraph("Poste Energizado", estilo_texto), Paragraph(traduzir_bool(item.get('poste_energizado', 'N/A')), estilo_texto)],
+                [Paragraph("Integridade do Poste", estilo_texto), Paragraph(traduzir_bool(item.get('integridade_poste', 'N/A')), estilo_texto)],
+            ]
+            
+            tabela_check = Table(dados_checklist, colWidths=[350, 190])
+            tabela_check.setStyle(TableStyle([
+                ('SPAN', (0, 0), (1, 0)),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')),
+                ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#e5e7eb')),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ]))
+            story.append(tabela_check)
+            story.append(Spacer(1, 15))
+            
+            dados_paralisacao = [
+                [Paragraph("<b>STATUS DE INTERRUPÇÃO / PARALISAÇÃO</b>", estilo_secao), ""],
+                [Paragraph(f"<b>Houve Interrupção das Atividades:</b> {traduzir_bool(item.get('houve_paralisacao', 'N/A'))}", estilo_texto), ""],
+                [Paragraph(f"<b>Motivo da Paralisação:</b><br/>{item.get('motivo_paralisacao') or 'Nenhum motivo informado.'}", estilo_texto), ""]
+            ]
+            
+            tabela_paralisa = Table(dados_paralisacao, colWidths=[540, 0])
+            tabela_paralisa.setStyle(TableStyle([
+                ('SPAN', (0, 0), (1, 0)),
+                ('SPAN', (0, 1), (1, 1)),
+                ('SPAN', (0, 2), (1, 2)),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ]))
+            story.append(tabela_paralisa)
+            
+            caminhos_fotos = item.get('foto_paralisacao')
+            
+            if caminhos_fotos and isinstance(caminhos_fotos, list) and len(caminhos_fotos) > 0:
+                story.append(Spacer(1, 15))
+                dados_foto_cabecalho = [[Paragraph("<b>REGISTRO FOTOGRÁFICO DA OCORRÊNCIA</b>", estilo_secao)]]
+                tabela_foto_cab = Table(dados_foto_cabecalho, colWidths=[540])
+                tabela_foto_cab.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#1f2937')),
+                    ('BOTTOMPADDING', (0, 0), (0, 0), 6),
+                    ('TOPPADDING', (0, 0), (0, 0), 6),
+                    ('LEFTPADDING', (0, 0), (0, 0), 8),
+                    ('GRID', (0, 0), (0, 0), 0.5, colors.HexColor('#d1d5db')),
+                ]))
+                story.append(tabela_foto_cab)
+                story.append(Spacer(1, 10))
+                
+                fotos_limitadas = caminhos_fotos[:5]
+                nome_bucket = "fotos_atendimentos"
+                
+                for idx, caminho_foto_storage in enumerate(fotos_limitadas):
+                    if caminho_foto_storage and caminho_foto_storage.strip() != "":
+                        try:
+                            res_bytes = supabase.storage.from_(nome_bucket).download(caminho_foto_storage)
+                            
+                            if res_bytes:
+                                temp_img_path = os.path.join(pasta_destino, f"temp_{apr_id}_{idx}.jpg")
+                                with open(temp_img_path, "wb") as f:
+                                    f.write(res_bytes)
+                                
+                                img = Image(temp_img_path, width=280, height=210)
+                                img.hAlign = 'CENTER'
+                                story.append(img)
+                                story.append(Spacer(1, 10))
+                        except Exception as img_err:
+                            story.append(Paragraph(f"Não foi possível carregar a imagem {idx+1}: {str(img_err)}", estilo_texto))
+            
+        else:
+            story.append(Paragraph("Detalhes da APR não encontrados no banco.", estilo_texto))
+            
+        doc.build(story)
+        return nome_arquivo
         
+    except Exception as e:
+        pasta_destino = "aprs_geradas"
+        os.makedirs(pasta_destino, exist_ok=True)
+        nome_arquivo = os.path.join(pasta_destino, "erro_apr.pdf")
+        c = canvas.Canvas(nome_arquivo, pagesize=letter)
+        c.drawString(50, 750, f"Erro ao gerar PDF: {str(e)}")
+        c.save()
+        return nome_arquivo
+    
+if not st.session_state.logado:
+    tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
+    with tab1:
+        cpf_input = st.text_input("CPF")
+        senha_input = st.text_input("Senha", type="password", key="login_senha")
+            
+        if st.button("Entrar"):
+            try:
+                user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
+                
+                if user_query.data and str(user_query.data[0].get("senha")) == str(senha_input).strip():
+                    dados_user = user_query.data[0]
+                    if dados_user.get("ativo") is True:
+                        st.session_state.logado = True
+                        st.session_state.nome_tecnico = dados_user["nome"]
+                        st.session_state.perfil = dados_user["perfil"]
+                        st.session_state.cpf_tecnico = dados_user["cpf"]
+                        st.rerun()
+                    else:
+                        st.error("⚠️ Este usuário está inativo.")
+                else:
+                    st.error("❌ CPF ou Senha incorretos.")
+            except Exception as e:
+                st.error(f"Erro na conexão com o banco: {e}")
+    with tab2:
+        nome = st.text_input("Nome Completo")
+        cpf = st.text_input("CPF (somente números)")
+        email = st.text_input("E-mail")
+        telefone = st.text_input("Telefone")
+        senha = st.text_input("Senha", type="password", key="cad_senha")
+        confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
+        if st.button("Finalizar Cadastro"):
+            if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
+                st.success("Cadastro realizado!")
+
 else:
-    # --- CABEÇALHO DO SISTEMA LOGADO ---
-    col_topo1, col_topo2 = st.columns([3, 1])
-    with col_topo1:
-        st.markdown(f"### ⚡ Olá, **{st.session_state.get('nome_tecnico', 'Usuário')}**")
-        st.caption(f"Perfil: **{st.session_state.perfil}**")
-    with col_topo2:
-        if st.button("🚪 Sair do Sistema"):
-            st.session_state.autenticado = False
-            st.session_state.perfil = None
-            st.session_state.cpf_tecnico = None
-            st.session_state.nome_tecnico = None
+    # --- BARRA LATERAL ---
+    with st.sidebar:
+        st.write(f"👤 Usuário: {st.session_state.nome_tecnico}")
+        if st.button("SAIR DO SISTEMA"):
+            st.session_state.logado = False
             st.rerun()
 
-    st.markdown("---")
+    st.success(f"Logado como: {st.session_state.nome_tecnico} ({st.session_state.perfil})")
+    
+    if st.session_state.perfil == "Administrador":
+        aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "⚙️ ADMIN"])
+    else:
+        aba1, aba2, aba3 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR"])
+        aba4 = None
 
-    # --- ABAS DO APLICATIVO ---
-    aba1, aba2 = st.tabs(["📝 Registrar Atendimento / APR", "📊 Relatórios de Produtividade"])
-
-    # ==========================================
-    # ABA 1: FORMULÁRIO (ATENDIMENTO / APR)
-    # ==========================================
     with aba1:
-        st.subheader("Novo Lançamento Operacional")
-        
         with st.form("form_atendimento", clear_on_submit=True):
-            st.markdown("#### Informações do Atendimento")
             c1, c2 = st.columns(2)
             with c1:
-                data_execucao = st.date_input("Data de Execução", value=datetime.today())
-                cliente = st.text_input("Nome do Cliente")
-                protocolo = st.text_input("Número do Protocolo")
+                data_execucao = st.date_input("DATA DA EXECUÇÃO", format="DD/MM/YYYY")
+                cliente = st.text_input("NOME DO CLIENTE")
+                endereco = st.text_input("ENDEREÇO")
+                metragem_cabo = st.text_input("CABO UTILIZADO")
             with c2:
-                endereco = st.text_input("Endereço")
-                tipo_servico = st.selectbox("Tipo de Serviço", ["REPARO", "INSTALAÇÃO", "MANUTENÇÃO"])
-                mercado = st.selectbox("Mercado", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
-
-            st.markdown("#### Detalhes e Observações")
-            observacao = st.text_area("Observação / Relato do Serviço")
-            metragem_cabo = st.text_input("Metragem de Cabo Utilizada (se aplicável)")
+                protocolo = st.text_input("PROTOCOLO")
+                mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
+                tipo_servico = st.selectbox("TIPO DE SERVIÇO", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
             
-            fotos_atendimento = st.file_uploader("Anexar Fotos do Atendimento (Pode selecionar várias)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
-
-            st.markdown("---")
-            st.markdown("#### APR - Análise Preliminar de Risco")
-            risco_identificado = st.text_input("Riscos Identificados na Activity / Atividade")
-            medida_controle = st.text_input("Medidas de Controle Aplicadas")
-            paralisacao = st.selectbox("Houve paralisação da atividade?", ["NÃO", "SIM"])
+            observacao = st.text_area("OBSERVAÇÃO")
             
-            fotos_paralisacao = []
-            if paralisacao == "SIM":
-                fotos_paralisacao = st.file_uploader("Fotos da Paralisação", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            submit_button = st.form_submit_button("Salvar Registro Completo", use_container_width=True)
-
-            if submit_button:
-                if not cliente or not protocolo:
-                    st.error("Preencha ao menos o Cliente e o Protocolo.")
+            # MODIFICAÇÃO APLICADA AQUI: accept_multiple_files=True para permitir múltiplas fotos no atendimento
+            fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
+            
+            if st.form_submit_button("REGISTRAR ATENDIMENTO"):
+                if not cliente or not endereco or not protocolo or not metragem_cabo:
+                    st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
                 else:
-                    try:
-                        lista_caminhos_fotos = []
-                        if fotos_atendimento:
-                            for foto_arq in fotos_atendimento:
-                                nome_arquivo_storage = f"fotos/{datetime.now().strftime('%Y%m%d_%H%M%S')}_{foto_arq.name}"
-                                supabase.storage.from_("fotos_atendimentos").upload(nome_arquivo_storage, foto_arq.getvalue())
-                                lista_caminhos_fotos.append(nome_arquivo_storage)
-
-                        lista_caminhos_apr = []
-                        if fotos_paralisacao:
-                            for foto_apr in fotos_paralisacao:
-                                nome_apr_storage = f"fotos_apr/{datetime.now().strftime('%Y%m%d_%H%M%S')}_{foto_apr.name}"
-                                supabase.storage.from_("fotos_atendimentos").upload(nome_apr_storage, foto_apr.getvalue())
-                                lista_caminhos_apr.append(nome_apr_storage)
-
-                        dados_atendimento = {
-                            "data_execucao": str(data_execucao),
-                            "cliente": cliente,
-                            "protocolo": protocolo,
-                            "endereco": endereco,
-                            "tipo_servico": tipo_servico,
-                            "mercado": mercado,
-                            "observacao": observacao,
-                            "metragem_cabo": metragem_cabo,
-                            "foto": lista_caminhos_fotos,
-                            "responsavel": st.session_state.get("nome_tecnico"),
-                            "cpf_tecnico": st.session_state.get("cpf_tecnico")
-                        }
-                        supabase.table("ATENDIMENTO").insert(dados_atendimento).execute()
-
-                        dados_apr = {
-                            "data_execucao": str(data_execucao),
-                            "protocolo": protocolo,
-                            "risco": risco_identificado,
-                            "medida_controle": medida_controle,
-                            "paralisacao": paralisacao,
-                            "foto_paralisacao": lista_caminhos_apr,
-                            "cpf_tecnico": st.session_state.get("cpf_tecnico")
-                        }
-                        supabase.table("APR").insert(dados_apr).execute()
-
-                        st.success("Atendimento e APR salvos com sucesso no sistema!")
-                    except Exception as e:
-                        st.error(f"Erro ao salvar dados: {e}")
-
-    # ==========================================
-    # ABA 2: RELATÓRIOS E VISUALIZADOR DE FOTOS
-    # ==========================================
+                    caminhos_fotos_atendimento = []
+                    if fotos_arquivos:
+                        # Faz o upload de cada foto selecionada (limitado a 5)
+                        for foto in fotos_arquivos[:5]:
+                            try:
+                                timestamp = int(time.time())
+                                caminho = f"fotos/{timestamp}_{foto.name}"
+                                supabase.storage.from_("fotos_atendimentos").upload(caminho, foto.getvalue())
+                                caminhos_fotos_atendimento.append(caminho)
+                            except Exception as e:
+                                st.error(f"Erro ao subir foto {foto.name}: {e}")
+                    
+                    if registrar_atendimento(
+                        data_execucao, 
+                        cliente, 
+                        endereco, 
+                        protocolo, 
+                        mercado, 
+                        tipo_servico, 
+                        observacao, 
+                        caminhos_fotos_atendimento, # Salva a lista de caminhos
+                        st.session_state.nome_tecnico, 
+                        st.session_state.cpf_tecnico, 
+                        metragem_cabo
+                    ):
+                        st.success("Atendimento registrado com sucesso!")
+            
     with aba2: 
-        st.subheader("Lista de Atendimentos Realizados")
+        st.subheader("Lista de Atendimentos")
         
         query = supabase.table("ATENDIMENTO").select("*")
         
@@ -227,6 +385,7 @@ else:
         if atendimentos.data:
             df = pd.DataFrame(atendimentos.data)
             
+            # Formata a coluna de data para o padrão DD/MM/AAAA
             if 'data_execucao' in df.columns:
                 df['data_execucao'] = pd.to_datetime(df['data_execucao'], errors='coerce').dt.strftime('%d/%m/%Y')
             
@@ -237,7 +396,7 @@ else:
             # --- VISUALIZADOR DE FOTOS (EXCLUSIVO PARA ADMINISTRADOR) ---
             if st.session_state.get("perfil") == "Administrador":
                 st.divider()
-                st.subheader("🖼️ Visualizador de Fotos do Atendimento")
+                st.subheader("🖼️ Visualizador de Fotos")
                 
                 opcoes_atendimento = {}
                 for item in atendimentos.data:
@@ -251,7 +410,7 @@ else:
                     opcoes_atendimento[label] = item
                     
                 atendimento_selecionado = st.selectbox(
-                    "Selecione um atendimento para visualizar as fotos anexadas:", 
+                    "Selecione um atendimento para visualizar as fotos:", 
                     ["Selecione..."] + list(opcoes_atendimento.keys())
                 )
                 
@@ -283,3 +442,195 @@ else:
                         
         else:
             st.info("Nenhum atendimento registrado.")
+
+    with aba3:
+        st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+        
+        if st.session_state.get("sucesso_apr"):
+            st.success(st.session_state.sucesso_apr)
+            st.balloons()
+            del st.session_state["sucesso_apr"]
+
+        with st.expander("📂 APRs Cadastradas", expanded=False):
+            try:
+                query_aprs = supabase.table("APR").select("id, numero_controle, cpf_tecnico").order("id", desc=True)
+                
+                if st.session_state.get("perfil") != "Administrador":
+                    cpf_logado = str(st.session_state.get("cpf_tecnico", "")).strip()
+                    cpf_limpo = cpf_logado.replace(".", "").replace("-", "")
+                    
+                    resposta_todas = query_aprs.execute()
+                    
+                    if resposta_todas.data:
+                        lista_filtrada = []
+                        for item in resposta_todas.data:
+                            cpf_banco = str(item.get("cpf_tecnico", "")).strip()
+                            cpf_banco_limpo = cpf_banco.replace(".", "").replace("-", "")
+                            
+                            if cpf_banco_limpo == cpf_limpo and cpf_limpo != "":
+                                lista_filtrada.append(item)
+                        lista_aprs_data = lista_filtrada
+                    else:
+                        lista_aprs_data = []
+                else:
+                    resposta_todas = query_aprs.execute()
+                    lista_aprs_data = resposta_todas.data
+                
+                if lista_aprs_data:
+                    cols = st.columns(4)
+                    for i, item in enumerate(lista_aprs_data):
+                        with cols[i % 4]:
+                            num_exibicao = item.get('numero_controle') or str(item['id'])
+                            if st.button(f"📄 APR {num_exibicao}", key=f"btn_apr_{item['id']}"):
+                                arquivo = gerar_pdf_apr(item['id'])
+                                with open(arquivo, "rb") as f:
+                                    st.download_button(
+                                        label="📥 BAIXAR PDF",
+                                        data=f,
+                                        file_name=arquivo,
+                                        mime="application/pdf"
+                                    )
+                else:
+                    st.info("Nenhuma APR cadastrada para o seu usuário.")
+            except Exception as e:
+                st.error(f"Erro ao listar APRs: {e}")
+
+        st.divider()
+        
+        with st.form("form_apr", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                data_atividade = st.date_input("Data da Atividade")
+                local_atividade = st.text_input("Local da Atividade")
+            with col2:
+                placa_veiculo = st.text_input("Placa do Veículo")
+            
+            st.write("### ✅ CHECKLIST DETALHADO")
+            c1, c2 = st.columns(2)
+            with c1:
+                uso_cinto = st.checkbox("Cinto de Segurança")
+                uso_capacete = st.checkbox("Capacete Classe B")
+                amarracao_escada = st.checkbox("Amarração da Escada")
+                area_sinalizada = st.checkbox("Sinalização da área")
+                verificacao_geral = st.checkbox("Verificação Geral")
+            with c2:
+                chuva = st.selectbox("Chuva", ["Não", "Sim"])
+                animais_peconhetos = st.selectbox("Animais Peçonhentos", ["Não", "Sim"])
+                poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
+                integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
+            
+            st.divider()
+            houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
+            
+            fotos_paralisacao = st.file_uploader("📸 Fotos da ocorrência (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
+            
+            motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
+            
+            botao_enviar = st.form_submit_button("REGISTRAR APR")
+            
+            if botao_enviar:
+                caminhos_fotos_salvas = []
+                if fotos_paralisacao:
+                    for foto in fotos_paralisacao[:5]:
+                        try:
+                            timestamp = int(time.time())
+                            caminho = f"fotos/{timestamp}_{foto.name}"
+                            supabase.storage.from_("fotos_atendimentos").upload(caminho, foto.getvalue())
+                            caminhos_fotos_salvas.append(caminho)
+                        except Exception as e:
+                            st.error(f"Erro ao subir foto {foto.name}: {e}")
+                
+                try:
+                    cpf_logado = st.session_state.get("cpf_tecnico", "")
+                    perfil_usuario = st.session_state.get("perfil", "Técnico")
+                    numero_gerado = str(int(time.time()))[-6:] 
+
+                    resposta = supabase.table("APR").insert({
+                        "numero_controle": numero_gerado,
+                        "data_atividade": str(data_atividade),
+                        "local_atividade": local_atividade,
+                        "placa_veiculo": placa_veiculo,
+                        "uso_cinto": bool(uso_cinto),
+                        "uso_capacete": bool(uso_capacete),
+                        "amarracao_escada": bool(amarracao_escada),
+                        "area_sinalizada": bool(area_sinalizada),
+                        "verificacao_geral": bool(verificacao_geral),
+                        "chuva": True if chuva == "Sim" else False,
+                        "animais_peconhetos": True if animais_peconhetos == "Sim" else False,
+                        "poste_energizado": True if poste_energizado == "Sim" else False,
+                        "integridade_poste": integridade_poste,
+                        "houve_paralisacao": bool(houve_paralisacao),
+                        "motivo_paralisacao": motivo_paralisacao,
+                        "foto_paralisacao": caminhos_fotos_salvas,
+                        "cpf_tecnico": cpf_logado,
+                        "perfil": perfil_usuario
+                    }).execute()
+                    
+                    st.session_state["sucesso_apr"] = f"APR {numero_gerado} registrada com sucesso!"
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar APR no banco: {e}")
+
+    if aba4 is not None: 
+        with aba4:
+            st.subheader("⚙️ PAINEL ADMINISTRATIVO")
+            
+            opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "💰 Tabela LPU"])
+            senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+
+            if senha_admin == "123456":
+                if opcao_admin == "Perfis de Usuários":
+                    st.write("### 👤 Gerenciamento de Perfis")
+                    try:
+                        dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
+                        df_tecnicos = pd.DataFrame(dados_tecnicos.data)
+                        edited_df = st.data_editor(df_tecnicos, use_container_width=True)
+
+                        if st.button("SALVAR PERFIS"):
+                            for index, row in edited_df.iterrows():
+                                supabase.table("TECNICOS").update({
+                                    "nome": row["nome"],
+                                    "cpf": row["cpf"],
+                                    "email": row["email"],
+                                    "telefone": row["telefone"],
+                                    "ativo": row["ativo"],
+                                    "perfil": row["perfil"]
+                                }).eq("id", row["id"]).execute()
+                            st.success("Perfis atualizados!")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao carregar perfis: {e}")
+
+                elif opcao_admin == "💰 Tabela LPU":
+                    st.write("### 💰 Gerenciamento da LPU")
+                    try:
+                        dados_lpu = supabase.table("LPU").select("*").execute()
+                        
+                        if not dados_lpu.data:
+                            df_lpu = pd.DataFrame(columns=["servico", "valor"])
+                        else:
+                            df_lpu = pd.DataFrame(dados_lpu.data)
+                        
+                        df_editada_lpu = st.data_editor(
+                            df_lpu, 
+                            use_container_width=True, 
+                            num_rows="dynamic" 
+                        )
+
+                        if st.button("SALVAR LPU"):
+                            with st.spinner("Salvando..."):
+                                for index, row in df_editada_lpu.iterrows():
+                                    if "id" in row and pd.notnull(row["id"]):
+                                        supabase.table("LPU").update({
+                                            "servico": row["servico"],
+                                            "valor": row["valor"]
+                                        }).eq("id", row["id"]).execute()
+                                    elif row["servico"]:
+                                        supabase.table("LPU").insert({
+                                            "servico": row["servico"],
+                                            "valor": row["valor"]
+                                        }).execute()
+                                st.success("Tabela LPU atualizada com sucesso!")
+                                st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao acessar tabela LPU: {e}")
