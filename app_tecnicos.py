@@ -341,7 +341,6 @@ else:
             try:
                 query_aprs = supabase.table("APR").select("id, numero_controle")
                 
-                # Se não for Administrador, filtra rigorosamente pelo CPF do técnico logado
                 if st.session_state.get("perfil") != "Administrador":
                     cpf_logado = st.session_state.get("cpf_tecnico", "")
                     query_aprs = query_aprs.eq("cpf_tecnico", cpf_logado)
@@ -352,7 +351,9 @@ else:
                     cols = st.columns(4)
                     for i, item in enumerate(lista_aprs.data):
                         with cols[i % 4]:
-                            if st.button(f"📄 APR {item['numero_controle']}", key=f"apr_{item['id']}"):
+                            # Se por acaso houver algum registro antigo sem numero_controle, tratamos para não quebrar
+                            num_exibicao = item.get('numero_controle') or str(item['id'])
+                            if st.button(f"📄 APR {num_exibicao}", key=f"apr_{item['id']}"):
                                 arquivo = gerar_pdf_apr(item['id'])
                                 with open(arquivo, "rb") as f:
                                     st.download_button(
@@ -368,7 +369,8 @@ else:
 
         st.divider()
         
-        with st.form("form_apr", clear_on_submit=True):
+        # Removido o clear_on_submit para a mensagem de sucesso aparecer corretamente
+        with st.form("form_apr"):
             col1, col2 = st.columns(2)
             with col1:
                 data_atividade = st.date_input("Data da Atividade")
@@ -395,7 +397,9 @@ else:
             foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
             
-            if st.form_submit_button("REGISTRAR APR"):
+            botao_enviar = st.form_submit_button("REGISTRAR APR")
+            
+            if botao_enviar:
                 url_foto = ""
                 if foto_paralisacao:
                     try:
@@ -410,7 +414,12 @@ else:
                     cpf_logado = st.session_state.get("cpf_tecnico", "")
                     perfil_usuario = st.session_state.get("perfil", "Técnico")
 
+                    # Gera um número de controle automático baseado no timestamp atual (ex: 2026212135)
+                    # Ou busca o último número e incrementa
+                    numero_gerado = str(int(time.time()))[-6:] 
+
                     resposta = supabase.table("APR").insert({
+                        "numero_controle": numero_gerado,
                         "data_atividade": str(data_atividade),
                         "local_atividade": local_atividade,
                         "placa_veiculo": placa_veiculo,
@@ -430,8 +439,8 @@ else:
                         "perfil": perfil_usuario
                     }).execute()
                     
-                    st.success("APR registrada com sucesso!")
-                    st.rerun()
+                    st.success(f"APR {numero_gerado} registrada com sucesso!")
+                    st.balloons()
                 except Exception as e:
                     st.error(f"Erro ao salvar APR no banco: {e}")
                     
