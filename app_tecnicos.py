@@ -341,8 +341,10 @@ else:
             try:
                 query_aprs = supabase.table("APR").select("id, numero_controle")
                 
+                # Se não for Administrador, filtra rigorosamente pelo CPF do técnico logado
                 if st.session_state.get("perfil") != "Administrador":
-                    query_aprs = query_aprs.eq("cpf_tecnico", st.session_state.get("cpf_tecnico", ""))
+                    cpf_logado = st.session_state.get("cpf_tecnico", "")
+                    query_aprs = query_aprs.eq("cpf_tecnico", cpf_logado)
                 
                 lista_aprs = query_aprs.order("numero_controle", desc=True).execute()
                 
@@ -406,6 +408,7 @@ else:
                 
                 try:
                     cpf_logado = st.session_state.get("cpf_tecnico", "")
+                    perfil_usuario = st.session_state.get("perfil", "Técnico")
 
                     resposta = supabase.table("APR").insert({
                         "data_atividade": str(data_atividade),
@@ -423,7 +426,8 @@ else:
                         "houve_paralisacao": bool(houve_paralisacao),
                         "motivo_paralisacao": motivo_paralisacao,
                         "foto_paralisacao": url_foto,
-                        "cpf_tecnico": cpf_logado
+                        "cpf_tecnico": cpf_logado,
+                        "perfil": perfil_usuario
                     }).execute()
                     
                     st.success("APR registrada com sucesso!")
