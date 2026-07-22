@@ -11,56 +11,57 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- ESTILIZAÇÃO CSS CUSTOMIZADA PARA VISUAL PROFISSIONAL ---
+# --- ESTILIZAÇÃO CSS (PADRÃO BRANCO E AZUL) ---
 st.markdown("""
     <style>
-        /* Ocultar elementos padrão do Streamlit para deixar com cara de sistema */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* Ajustar espaçamento geral */
+        .stApp {
+            background-color: #ffffff;
+            color: #1e293b;
+        }
+        
         .block-container {
             padding-top: 2rem;
             padding-bottom: 2rem;
         }
         
-        /* Estilizar botões principais */
         .stButton>button {
             width: 100%;
             border-radius: 6px;
             font-weight: bold;
             height: 42px;
-            background-color: #0066cc;
+            background-color: #0284c7;
             color: white;
+            border: none;
         }
         .stButton>button:hover {
-            background-color: #0052a3;
+            background-color: #0369a1;
             color: white;
         }
         
-        /* Cartões de métricas ou caixas de destaque */
-        .card {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            background-color: #f0f9ff;
+            border-radius: 6px 6px 0px 0px;
+            color: #0369a1;
+            font-weight: bold;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #0284c7 !important;
+            color: white !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # --- CONEXÃO COM O SUPABASE ---
-SUPABASE_URL = "SUA_URL_AQUI"      # Substitua pelas suas credenciais se necessário
-SUPABASE_KEY = "SUA_CHAVE_AQUI"    # ou mantenha as que já funcionam no seu projeto
-
-# Se você já usa st.secrets no seu projeto, pode manter a forma original:
-try:
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
-    supabase: Client = create_client(url, key)
-except Exception:
-    # Fallback caso utilize direto
-    pass
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(url, key)
 
 # --- CONTROLE DE SESSÃO DE LOGIN ---
 if "autenticado" not in st.session_state:
@@ -78,8 +79,8 @@ if not st.session_state.autenticado:
     
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align: center; color: #1f2937;'>⚡ LRVIX Telecom</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #6b7280;'>Sistema de Controle Operacional e APR</p>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #0284c7;'>⚡ LRVIX Telecom</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #64748b;'>Sistema de Controle Operacional e APR</p>", unsafe_allow_html=True)
         
         with st.container():
             st.markdown("---")
@@ -89,8 +90,7 @@ if not st.session_state.autenticado:
             if st.button("Acessar Sistema", use_container_width=True):
                 if cpf_input and senha_input:
                     try:
-                        # Consulta na tabela USUARIOS / TECNICOS (ajuste conforme seu banco)
-                        res = supabase.table("USUARIOS").select("*").eq("cpf", cpf_input).eq("senha", senha_input).execute()
+                        res = supabase.table("tecnicos").select("*").eq("cpf", cpf_input).eq("senha", senha_input).execute()
                         if res.data:
                             user = res.data[0]
                             st.session_state.autenticado = True
@@ -147,16 +147,14 @@ else:
             observacao = st.text_area("Observação / Relato do Serviço")
             metragem_cabo = st.text_input("Metragem de Cabo Utilizada (se aplicável)")
             
-            # Campo de múltiplas fotos para o Atendimento
             fotos_atendimento = st.file_uploader("Anexar Fotos do Atendimento (Pode selecionar várias)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
             st.markdown("---")
             st.markdown("#### APR - Análise Preliminar de Risco")
-            risco_identificado = st.text_input("Riscos Identificados na Atividade")
+            risco_identificado = st.text_input("Riscos Identificados na Activity / Atividade")
             medida_controle = st.text_input("Medidas de Controle Aplicadas")
             paralisacao = st.selectbox("Houve paralisação da atividade?", ["NÃO", "SIM"])
             
-            # Campo de foto para paralisação (APR)
             fotos_paralisacao = []
             if paralisacao == "SIM":
                 fotos_paralisacao = st.file_uploader("Fotos da Paralisação", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
@@ -169,7 +167,6 @@ else:
                     st.error("Preencha ao menos o Cliente e o Protocolo.")
                 else:
                     try:
-                        # 1. Upload das fotos do Atendimento para o Storage
                         lista_caminhos_fotos = []
                         if fotos_atendimento:
                             for foto_arq in fotos_atendimento:
@@ -177,7 +174,6 @@ else:
                                 supabase.storage.from_("fotos_atendimentos").upload(nome_arquivo_storage, foto_arq.getvalue())
                                 lista_caminhos_fotos.append(nome_arquivo_storage)
 
-                        # 2. Upload das fotos de paralisação da APR para o Storage
                         lista_caminhos_apr = []
                         if fotos_paralisacao:
                             for foto_apr in fotos_paralisacao:
@@ -185,7 +181,6 @@ else:
                                 supabase.storage.from_("fotos_atendimentos").upload(nome_apr_storage, foto_apr.getvalue())
                                 lista_caminhos_apr.append(nome_apr_storage)
 
-                        # 3. Inserir dados na tabela ATENDIMENTO
                         dados_atendimento = {
                             "data_execucao": str(data_execucao),
                             "cliente": cliente,
@@ -195,20 +190,19 @@ else:
                             "mercado": mercado,
                             "observacao": observacao,
                             "metragem_cabo": metragem_cabo,
-                            "foto": lista_caminhos_fotos, # Array de texto no banco
-                            "responsable": st.session_state.get("nome_tecnico"),
+                            "foto": lista_caminhos_fotos,
+                            "responsavel": st.session_state.get("nome_tecnico"),
                             "cpf_tecnico": st.session_state.get("cpf_tecnico")
                         }
                         supabase.table("ATENDIMENTO").insert(dados_atendimento).execute()
 
-                        # 4. Inserir dados na tabela APR
                         dados_apr = {
                             "data_execucao": str(data_execucao),
                             "protocolo": protocolo,
                             "risco": risco_identificado,
                             "medida_controle": medida_controle,
                             "paralisacao": paralisacao,
-                            "foto_paralisacao": lista_caminhos_apr, # Array de texto no banco
+                            "foto_paralisacao": lista_caminhos_apr,
                             "cpf_tecnico": st.session_state.get("cpf_tecnico")
                         }
                         supabase.table("APR").insert(dados_apr).execute()
@@ -233,7 +227,6 @@ else:
         if atendimentos.data:
             df = pd.DataFrame(atendimentos.data)
             
-            # Formata a coluna de data para o padrão DD/MM/AAAA
             if 'data_execucao' in df.columns:
                 df['data_execucao'] = pd.to_datetime(df['data_execucao'], errors='coerce').dt.strftime('%d/%m/%Y')
             
@@ -262,7 +255,6 @@ else:
                     ["Selecione..."] + list(opcoes_atendimento.keys())
                 )
                 
-                ifendimento_selecionado = atendimento_selecionado # alias seguro
                 if atendimento_selecionado != "Selecione...":
                     dados_selecionados = opcoes_atendimento[atendimento_selecionado]
                     fotos = dados_selecionados.get("foto")
@@ -283,7 +275,7 @@ else:
                                 with cols[idx]:
                                     try:
                                         res_bytes = supabase.storage.from_("fotos_atendimentos").download(caminho_foto)
-                                        st.image(res_bytes, caption=f"Anexo {idx+1}", use_container_width=True)
+                                        st.image(res_bytes, caption=f"Anexo {idx+1}", use_column_width=True)
                                     except Exception as e:
                                         st.error(f"Erro ao carregar a foto {idx+1}")
                         else:
