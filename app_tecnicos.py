@@ -474,21 +474,26 @@ else:
             
             st.divider()
             houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
-            foto_paralisacao = st.file_uploader("📸 Foto da ocorrência", type=['jpg', 'png', 'jpeg'])
+            
+            # ALTERAÇÃO APLICADA AQUI: accept_multiple_files=True para permitir até 5 fotos
+            fotos_paralisacao = st.file_uploader("📸 Fotos da ocorrência (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
+            
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
             
             botao_enviar = st.form_submit_button("REGISTRAR APR")
             
             if botao_enviar:
-                url_foto = ""
-                if foto_paralisacao:
-                    try:
-                        timestamp = int(time.time())
-                        caminho = f"fotos/{timestamp}_{foto_paralisacao.name}"
-                        supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_paralisacao.getvalue())
-                        url_foto = caminho
-                    except Exception as e:
-                        st.error(f"Erro ao subir foto: {e}")
+                caminhos_fotos_salvas = []
+                if fotos_paralisacao:
+                    # Limita o envio a no máximo 5 arquivos
+                    for foto in fotos_paralisacao[:5]:
+                        try:
+                            timestamp = int(time.time())
+                            caminho = f"fotos/{timestamp}_{foto.name}"
+                            supabase.storage.from_("fotos_atendimentos").upload(caminho, foto.getvalue())
+                            caminhos_fotos_salvas.append(caminho)
+                        except Exception as e:
+                            st.error(f"Erro ao subir foto {foto.name}: {e}")
                 
                 try:
                     cpf_logado = st.session_state.get("cpf_tecnico", "")
@@ -511,7 +516,7 @@ else:
                         "integridade_poste": integridade_poste,
                         "houve_paralisacao": bool(houve_paralisacao),
                         "motivo_paralisacao": motivo_paralisacao,
-                        "foto_paralisacao": url_foto,
+                        "foto_paralisacao": caminhos_fotos_salvas, # Salva a lista correta de caminhos
                         "cpf_tecnico": cpf_logado,
                         "perfil": perfil_usuario
                     }).execute()
@@ -520,7 +525,7 @@ else:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar APR no banco: {e}")
-                    
+
     if aba4 is not None: 
         with aba4:
             st.subheader("⚙️ PAINEL ADMINISTRATIVO")
