@@ -116,6 +116,16 @@ def gerar_pdf_apr(apr_id):
             fontName='Helvetica-Bold'
         )
 
+        # Função auxiliar para traduzir booleano para Português
+        def traduzir_bool(valor):
+            if isinstance(valor, bool):
+                return "Sim" if valor else "Não"
+            if str(valor).lower() in ["true", "t", "1", "sim"]:
+                return "Sim"
+            if str(valor).lower() in ["false", "f", "0", "não", "nao"]:
+                return "Não"
+            return str(valor) # Retorna o valor original caso não seja booleano (ex: "Bom", "Ruim")
+
         if dados_apr.data:
             item = dados_apr.data[0]
             num_controle = item.get('numero_controle') or item.get('id') or 'N/A'
@@ -149,8 +159,8 @@ def gerar_pdf_apr(apr_id):
             
             tabela_geral = Table(dados_gerais, colWidths=[270, 270])
             tabela_geral.setStyle(TableStyle([
-                ('SPAN', (0, 0), (1, 0)), # Mescla o cabeçalho da seção
-                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')), # Cor de fundo do cabeçalho
+                ('SPAN', (0, 0), (1, 0)),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')),
                 ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -163,19 +173,19 @@ def gerar_pdf_apr(apr_id):
             story.append(tabela_geral)
             story.append(Spacer(1, 15))
             
-            # --- BLOCO 2: CHECKLIST DETALHADO ---
+            # --- BLOCO 2: CHECKLIST DETALHADO (COM TRADUÇÃO APLICADA) ---
             dados_checklist = [
                 [Paragraph("<b>CHECKLIST DE SEGURANÇA E CONDIÇÕES</b>", estilo_secao), ""],
                 [Paragraph("<b>Item de Verificação</b>", estilo_texto_bold), Paragraph("<b>Status / Resposta</b>", estilo_texto_bold)],
-                [Paragraph("Cinto de Segurança", estilo_texto), Paragraph(str(item.get('uso_cinto', 'N/A')), estilo_texto)],
-                [Paragraph("Capacete Classe B", estilo_texto), Paragraph(str(item.get('uso_capacete', 'N/A')), estilo_texto)],
-                [Paragraph("Amarração da Escada", estilo_texto), Paragraph(str(item.get('amarracao_escada', 'N/A')), estilo_texto)],
-                [Paragraph("Sinalização da Área", estilo_texto), Paragraph(str(item.get('area_sinalizada', 'N/A')), estilo_texto)],
-                [Paragraph("Verificação Geral", estilo_texto), Paragraph(str(item.get('verificacao_geral', 'N/A')), estilo_texto)],
-                [Paragraph("Chuva", estilo_texto), Paragraph(str(item.get('chuva', 'N/A')), estilo_texto)],
-                [Paragraph("Animais Peçonhentos", estilo_texto), Paragraph(str(item.get('animais_peconhetos', 'N/A')), estilo_texto)],
-                [Paragraph("Poste Energizado", estilo_texto), Paragraph(str(item.get('poste_energizado', 'N/A')), estilo_texto)],
-                [Paragraph("Integridade do Poste", estilo_texto), Paragraph(str(item.get('integridade_poste', 'N/A')), estilo_texto)],
+                [Paragraph("Cinto de Segurança", estilo_texto), Paragraph(traduzir_bool(item.get('uso_cinto', 'N/A')), estilo_texto)],
+                [Paragraph("Capacete Classe B", estilo_texto), Paragraph(traduzir_bool(item.get('uso_capacete', 'N/A')), estilo_texto)],
+                [Paragraph("Amarração da Escada", estilo_texto), Paragraph(traduzir_bool(item.get('amarracao_escada', 'N/A')), estilo_texto)],
+                [Paragraph("Sinalização da Área", estilo_texto), Paragraph(traduzir_bool(item.get('area_sinalizada', 'N/A')), estilo_texto)],
+                [Paragraph("Verificação Geral", estilo_texto), Paragraph(traduzir_bool(item.get('verificacao_geral', 'N/A')), estilo_texto)],
+                [Paragraph("Chuva", estilo_texto), Paragraph(traduzir_bool(item.get('chuva', 'N/A')), estilo_texto)],
+                [Paragraph("Animais Peçonhentos", estilo_texto), Paragraph(traduzir_bool(item.get('animais_peconhetos', 'N/A')), estilo_texto)],
+                [Paragraph("Poste Energizado", estilo_texto), Paragraph(traduzir_bool(item.get('poste_energizado', 'N/A')), estilo_texto)],
+                [Paragraph("Integridade do Poste", estilo_texto), Paragraph(traduzir_bool(item.get('integridade_poste', 'N/A')), estilo_texto)],
             ]
             
             tabela_check = Table(dados_checklist, colWidths=[350, 190])
@@ -194,10 +204,10 @@ def gerar_pdf_apr(apr_id):
             story.append(tabela_check)
             story.append(Spacer(1, 15))
             
-            # --- BLOCO 3: PARALISAÇÃO ---
+            # --- BLOCO 3: PARALISAÇÃO (COM TRADUÇÃO APLICADA) ---
             dados_paralisacao = [
                 [Paragraph("<b>STATUS DE INTERRUPÇÃO / PARALISAÇÃO</b>", estilo_secao), ""],
-                [Paragraph(f"<b>Houve Interrupção das Atividades:</b> {item.get('houve_paralisacao', 'N/A')}", estilo_texto), ""],
+                [Paragraph(f"<b>Houve Interrupção das Atividades:</b> {traduzir_bool(item.get('houve_paralisacao', 'N/A'))}", estilo_texto), ""],
                 [Paragraph(f"<b>Motivo da Paralisação:</b><br/>{item.get('motivo_paralisacao') or 'Nenhum motivo informado.'}", estilo_texto), ""]
             ]
             
@@ -224,16 +234,6 @@ def gerar_pdf_apr(apr_id):
         return nome_arquivo
         
     except Exception as e:
-        pasta_destino = "aprs_geradas"
-        os.makedirs(pasta_destino, exist_ok=True)
-        nome_arquivo = os.path.join(pasta_destino, "erro_apr.pdf")
-        c = canvas.Canvas(nome_arquivo, pagesize=letter)
-        c.drawString(50, 750, f"Erro ao gerar PDF: {str(e)}")
-        c.save()
-        return nome_arquivo
-        
-    except Exception as e:
-        # Fallback de segurança caso ocorra algum erro na estilização
         pasta_destino = "aprs_geradas"
         os.makedirs(pasta_destino, exist_ok=True)
         nome_arquivo = os.path.join(pasta_destino, "erro_apr.pdf")
