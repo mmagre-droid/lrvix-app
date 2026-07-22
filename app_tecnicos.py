@@ -60,9 +60,10 @@ def gerar_pdf_apr(apr_id):
     try:
         from reportlab.lib.pagesizes import letter
         from reportlab.pdfgen import canvas
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib import colors
+        import os
         
         pasta_destino = "aprs_geradas"
         os.makedirs(pasta_destino, exist_ok=True)
@@ -124,7 +125,7 @@ def gerar_pdf_apr(apr_id):
                 return "Sim"
             if str(valor).lower() in ["false", "f", "0", "não", "nao"]:
                 return "Não"
-            return str(valor) # Retorna o valor original caso não seja booleano (ex: "Bom", "Ruim")
+            return str(valor)
 
         if dados_apr.data:
             item = dados_apr.data[0]
@@ -173,7 +174,7 @@ def gerar_pdf_apr(apr_id):
             story.append(tabela_geral)
             story.append(Spacer(1, 15))
             
-            # --- BLOCO 2: CHECKLIST DETALHADO (COM TRADUÇÃO APLICADA) ---
+            # --- BLOCO 2: CHECKLIST DETALHADO ---
             dados_checklist = [
                 [Paragraph("<b>CHECKLIST DE SEGURANÇA E CONDIÇÕES</b>", estilo_secao), ""],
                 [Paragraph("<b>Item de Verificação</b>", estilo_texto_bold), Paragraph("<b>Status / Resposta</b>", estilo_texto_bold)],
@@ -204,7 +205,7 @@ def gerar_pdf_apr(apr_id):
             story.append(tabela_check)
             story.append(Spacer(1, 15))
             
-            # --- BLOCO 3: PARALISAÇÃO (COM TRADUÇÃO APLICADA) ---
+            # --- BLOCO 3: PARALISAÇÃO ---
             dados_paralisacao = [
                 [Paragraph("<b>STATUS DE INTERRUPÇÃO / PARALISAÇÃO</b>", estilo_secao), ""],
                 [Paragraph(f"<b>Houve Interrupção das Atividades:</b> {traduzir_bool(item.get('houve_paralisacao', 'N/A'))}", estilo_texto), ""],
@@ -226,6 +227,32 @@ def gerar_pdf_apr(apr_id):
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
             ]))
             story.append(tabela_paralisa)
+            
+            # --- BLOCO 4: FOTO DA ATIVIDADE (SE HOUVER) ---
+            # Ajuste 'foto_url' para o nome exato da coluna no seu banco onde fica o caminho ou link da imagem
+            caminho_foto = item.get('foto_url') or item.get('foto') 
+            
+            if caminho_foto and os.path.exists(caminho_foto):
+                story.append(Spacer(1, 15))
+                dados_foto_cabecalho = [[Paragraph("<b>REGISTRO FOTOGRÁFICO DA ATIVIDADE</b>", estilo_secao)]]
+                tabela_foto_cab = Table(dados_foto_cabecalho, colWidths=[540])
+                tabela_foto_cab.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#1f2937')),
+                    ('BOTTOMPADDING', (0, 0), (0, 0), 6),
+                    ('TOPPADDING', (0, 0), (0, 0), 6),
+                    ('LEFTPADDING', (0, 0), (0, 0), 8),
+                    ('GRID', (0, 0), (0, 0), 0.5, colors.HexColor('#d1d5db')),
+                ]))
+                story.append(tabela_foto_cab)
+                story.append(Spacer(1, 10))
+                
+                # Adiciona a imagem redimensionada (ex: largura máxima de 300 e altura proporcional)
+                try:
+                    img = Image(caminho_foto, width=300, height=225)
+                    img.hAlign = 'CENTER'
+                    story.append(img)
+                except Exception:
+                    story.append(Paragraph("Não foi possível carregar a imagem.", estilo_texto))
             
         else:
             story.append(Paragraph("Detalhes da APR não encontrados no banco.", estilo_texto))
