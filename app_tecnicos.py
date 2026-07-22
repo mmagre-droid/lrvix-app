@@ -337,9 +337,14 @@ else:
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
+        # Exibe mensagem de sucesso salva na sessão (se houver) e depois limpa
+        if st.session_state.get("sucesso_apr"):
+            st.success(st.session_state.sucesso_apr)
+            st.balloons()
+            del st.session_state["sucesso_apr"]
+
         with st.expander("📂 APRs Cadastradas", expanded=False):
             try:
-                # Ordena pelo ID decrescente para que o mais recente criado apareça sempre na frente
                 query_aprs = supabase.table("APR").select("id, numero_controle, cpf_tecnico").order("id", desc=True)
                 
                 if st.session_state.get("perfil") != "Administrador":
@@ -384,7 +389,7 @@ else:
 
         st.divider()
         
-        with st.form("form_apr"):
+        with st.form("form_apr", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
                 data_atividade = st.date_input("Data da Atividade")
@@ -450,8 +455,9 @@ else:
                         "perfil": perfil_usuario
                     }).execute()
                     
-                    st.success(f"APR {numero_gerado} registrada com sucesso!")
-                    st.balloons()
+                    # Salva a mensagem na sessão para exibir após o rerun e limpa os campos via clear_on_submit=True
+                    st.session_state["sucesso_apr"] = f"APR {numero_gerado} registrada com sucesso!"
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar APR no banco: {e}")
                     
