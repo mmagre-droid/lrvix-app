@@ -339,21 +339,36 @@ else:
         
         with st.expander("📂 APRs Cadastradas", expanded=False):
             try:
-                query_aprs = supabase.table("APR").select("id, numero_controle")
+                # Ordena pelo ID decrescente para que o mais recente criado apareça sempre na frente
+                query_aprs = supabase.table("APR").select("id, numero_controle, cpf_tecnico").order("id", desc=True)
                 
                 if st.session_state.get("perfil") != "Administrador":
-                    cpf_logado = st.session_state.get("cpf_tecnico", "")
-                    query_aprs = query_aprs.eq("cpf_tecnico", cpf_logado)
+                    cpf_logado = str(st.session_state.get("cpf_tecnico", "")).strip()
+                    cpf_limpo = cpf_logado.replace(".", "").replace("-", "")
+                    
+                    resposta_todas = query_aprs.execute()
+                    
+                    if resposta_todas.data:
+                        lista_filtrada = []
+                        for item in resposta_todas.data:
+                            cpf_banco = str(item.get("cpf_tecnico", "")).strip()
+                            cpf_banco_limpo = cpf_banco.replace(".", "").replace("-", "")
+                            
+                            if cpf_banco_limpo == cpf_limpo and cpf_limpo != "":
+                                lista_filtrada.append(item)
+                        lista_aprs_data = lista_filtrada
+                    else:
+                        lista_aprs_data = []
+                else:
+                    resposta_todas = query_aprs.execute()
+                    lista_aprs_data = resposta_todas.data
                 
-                lista_aprs = query_aprs.order("numero_controle", desc=True).execute()
-                
-                if lista_aprs.data:
+                if lista_aprs_data:
                     cols = st.columns(4)
-                    for i, item in enumerate(lista_aprs.data):
+                    for i, item in enumerate(lista_aprs_data):
                         with cols[i % 4]:
-                            # Se por acaso houver algum registro antigo sem numero_controle, tratamos para não quebrar
                             num_exibicao = item.get('numero_controle') or str(item['id'])
-                            if st.button(f"📄 APR {num_exibicao}", key=f"apr_{item['id']}"):
+                            if st.button(f"📄 APR {num_exibicao}", key=f"btn_apr_{item['id']}"):
                                 arquivo = gerar_pdf_apr(item['id'])
                                 with open(arquivo, "rb") as f:
                                     st.download_button(
@@ -363,13 +378,12 @@ else:
                                         mime="application/pdf"
                                     )
                 else:
-                    st.info("Nenhuma APR cadastrada.")
+                    st.info("Nenhuma APR cadastrada para o seu usuário.")
             except Exception as e:
                 st.error(f"Erro ao listar APRs: {e}")
 
         st.divider()
         
-        # Removido o clear_on_submit para a mensagem de sucesso aparecer corretamente
         with st.form("form_apr"):
             col1, col2 = st.columns(2)
             with col1:
@@ -413,9 +427,6 @@ else:
                 try:
                     cpf_logado = st.session_state.get("cpf_tecnico", "")
                     perfil_usuario = st.session_state.get("perfil", "Técnico")
-
-                    # Gera um número de controle automático baseado no timestamp atual (ex: 2026212135)
-                    # Ou busca o último número e incrementa
                     numero_gerado = str(int(time.time()))[-6:] 
 
                     resposta = supabase.table("APR").insert({
