@@ -20,20 +20,27 @@ st.markdown("""
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* Fundo geral em Azul Profissional */
+        /* Fundo geral da página em Azul Profissional */
         .stApp {
             background-color: #0f172a;
             color: #f8fafc;
         }
         
+        /* Bloco central com fundo escuro elegante para contraste perfeito */
         .block-container {
             padding-top: 2rem;
             padding-bottom: 2rem;
             max-width: 1000px;
-            background-color: #ffffff;
-            color: #1e293b;
+            background-color: #1e293b;
+            color: #f8fafc;
             border-radius: 12px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            border: 1px solid #334155;
+        }
+        
+        /* Forçar textos padrão e labels dentro do container a ficarem claros */
+        .block-container p, .block-container span, .block-container label, .block-container div {
+            color: #f8fafc !important;
         }
         
         /* Campos de texto e inputs perfeitamente legíveis */
@@ -61,14 +68,14 @@ st.markdown("""
             box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
         }
         
-        /* Abas estilizadas */
+        /* Abas estilizadas com contraste correto */
         .stTabs [data-baseweb="tab-list"] {
             gap: 8px;
         }
         .stTabs [data-baseweb="tab"] {
-            background-color: #e2e8f0;
+            background-color: #334155;
             border-radius: 6px 6px 0px 0px;
-            color: #475569;
+            color: #94a3b8;
             font-weight: 600;
             padding: 10px 20px;
         }
@@ -105,7 +112,6 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
         st.error(f"Erro ao cadastrar: {e}")
         return False
 
-# Função para incluir atendimento (agora recebendo a lista de fotos)
 def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico, metragem_cabo):
     try:
         supabase.table("ATENDIMENTO").insert({
@@ -116,7 +122,7 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
             "mercado": mercado,
             "tipo_servico": tipo_servico,
             "observacao": observacao,
-            "foto": foto_url, # Salva a lista de caminhos das fotos no banco
+            "foto": foto_url,
             "responsavel": nome_tecnico,
             "cpf_tecnico": cpf_tecnico,
             "metragem_cabo": metragem_cabo
@@ -126,7 +132,6 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
         st.error(f"Erro ao salvar: {e}")
         return False
 
-# Função para gerar o PDF da APR corretamente
 def gerar_pdf_apr(apr_id):
     try:
         from reportlab.lib.pagesizes import letter
@@ -142,7 +147,6 @@ def gerar_pdf_apr(apr_id):
         dados_apr = supabase.table("APR").select("*").eq("id", apr_id).execute()
         nome_arquivo = os.path.join(pasta_destino, f"apr_{apr_id}.pdf")
         
-        # Configuração do documento
         doc = SimpleDocTemplate(
             nome_arquivo, 
             pagesize=letter,
@@ -347,7 +351,7 @@ if not st.session_state.logado:
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align: center; color: #0284c7;'>⚡ Acesso LRVIX</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #38bdf8;'>⚡ Acesso LRVIX</h2>", unsafe_allow_html=True)
         tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
         with tab1:
             cpf_input = st.text_input("CPF")
