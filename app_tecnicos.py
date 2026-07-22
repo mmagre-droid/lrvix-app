@@ -20,16 +20,20 @@ st.markdown("""
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* Fundo geral limpo e corporativo */
+        /* Fundo geral em Azul Profissional */
         .stApp {
-            background-color: #f8fafc;
-            color: #1e293b;
+            background-color: #0f172a;
+            color: #f8fafc;
         }
         
         .block-container {
             padding-top: 2rem;
             padding-bottom: 2rem;
             max-width: 1000px;
+            background-color: #ffffff;
+            color: #1e293b;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         }
         
         /* Campos de texto e inputs perfeitamente legíveis */
