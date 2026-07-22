@@ -228,13 +228,12 @@ def gerar_pdf_apr(apr_id):
             ]))
             story.append(tabela_paralisa)
             
-            # --- BLOCO 4: FOTO DA ATIVIDADE (SE HOUVER) ---
-            # Ajuste 'foto_url' para o nome exato da coluna no seu banco onde fica o caminho ou link da imagem
-            caminho_foto = item.get('foto_url') or item.get('foto') 
+            # --- BLOCO 4: FOTO DA PARALISAÇÃO (BAixANDO DO STORAGE DO SUPABASE) ---
+            caminho_foto_storage = item.get('foto_paralisacao')
             
-            if caminho_foto and os.path.exists(caminho_foto):
+            if caminho_foto_storage and caminho_foto_storage.strip() != "":
                 story.append(Spacer(1, 15))
-                dados_foto_cabecalho = [[Paragraph("<b>REGISTRO FOTOGRÁFICO DA ATIVIDADE</b>", estilo_secao)]]
+                dados_foto_cabecalho = [[Paragraph("<b>REGISTRO FOTOGRÁFICO DA OCORRÊNCIA</b>", estilo_secao)]]
                 tabela_foto_cab = Table(dados_foto_cabecalho, colWidths=[540])
                 tabela_foto_cab.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#1f2937')),
@@ -246,13 +245,24 @@ def gerar_pdf_apr(apr_id):
                 story.append(tabela_foto_cab)
                 story.append(Spacer(1, 10))
                 
-                # Adiciona a imagem redimensionada (ex: largura máxima de 300 e altura proporcional)
                 try:
-                    img = Image(caminho_foto, width=300, height=225)
-                    img.hAlign = 'CENTER'
-                    story.append(img)
-                except Exception:
-                    story.append(Paragraph("Não foi possível carregar a imagem.", estilo_texto))
+                    # O bucket onde a foto está salva (substitua "fotos" se o nome do seu bucket no Supabase for diferente)
+                    nome_bucket = "fotos" 
+                    
+                    # Baixa a imagem do Storage do Supabase para um arquivo temporário local
+                    res_bytes = supabase.storage.from_(nome_bucket).download(caminho_foto_storage)
+                    
+                    if res_bytes:
+                        temp_img_path = os.path.join(pasta_destino, f"temp_{apr_id}.jpg")
+                        with open(temp_img_path, "wb") as f:
+                            f.write(res_bytes)
+                        
+                        # Adiciona a imagem baixada ao PDF centralizada
+                        img = Image(temp_img_path, width=280, height=210)
+                        img.hAlign = 'CENTER'
+                        story.append(img)
+                except Exception as img_err:
+                    story.append(Paragraph(f"Não foi possível carregar a imagem do storage: {str(img_err)}", estilo_texto))
             
         else:
             story.append(Paragraph("Detalhes da APR não encontrados no banco.", estilo_texto))
