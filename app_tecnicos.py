@@ -34,7 +34,7 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
         st.error(f"Erro ao cadastrar: {e}")
         return False
 
-# Função para incluir atendimento
+# Função para incluir atendimento (agora recebendo a lista de fotos)
 def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico, metragem_cabo):
     try:
         supabase.table("ATENDIMENTO").insert({
@@ -45,7 +45,7 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
             "mercado": mercado,
             "tipo_servico": tipo_servico,
             "observacao": observacao,
-            "foto": foto_url,
+            "foto": foto_url, # Salva a lista de caminhos das fotos no banco
             "responsavel": nome_tecnico,
             "cpf_tecnico": cpf_tecnico,
             "metragem_cabo": metragem_cabo
@@ -71,7 +71,7 @@ def gerar_pdf_apr(apr_id):
         dados_apr = supabase.table("APR").select("*").eq("id", apr_id).execute()
         nome_arquivo = os.path.join(pasta_destino, f"apr_{apr_id}.pdf")
         
-        # Configuração do documento (Margens otimizadas para ocupar melhor a folha)
+        # Configuração do documento
         doc = SimpleDocTemplate(
             nome_arquivo, 
             pagesize=letter,
@@ -82,14 +82,13 @@ def gerar_pdf_apr(apr_id):
         story = []
         styles = getSampleStyleSheet()
         
-        # Estilos personalizados para padronizar o visual
         estilo_titulo = ParagraphStyle(
             'TituloPrincipal',
             parent=styles['Heading1'],
             fontName='Helvetica-Bold',
             fontSize=14,
             textColor=colors.HexColor('#1f2937'),
-            alignment=1, # Centralizado
+            alignment=1,
             spaceAfter=10
         )
         
@@ -117,7 +116,6 @@ def gerar_pdf_apr(apr_id):
             fontName='Helvetica-Bold'
         )
 
-        # Função auxiliar para traduzir booleano para Português
         def traduzir_bool(valor):
             if isinstance(valor, bool):
                 return "Sim" if valor else "Não"
@@ -132,7 +130,6 @@ def gerar_pdf_apr(apr_id):
             num_controle = item.get('numero_controle') or item.get('id') or 'N/A'
             cpf_tec = item.get('cpf_tecnico', '')
             
-            # Busca o nome do técnico no banco de dados usando o CPF salvo na APR
             nome_tecnico = "Não informado"
             if cpf_tec:
                 try:
@@ -144,12 +141,10 @@ def gerar_pdf_apr(apr_id):
                 except Exception:
                     nome_tecnico = cpf_tec
             
-            # --- CABEÇALHO ---
             story.append(Paragraph("<b>LRVIX - SISTEMA DE GESTÃO TÉCNICA</b>", estilo_titulo))
             story.append(Paragraph(f"<b>ANÁLISE PRELIMINAR DE RISCO (APR) - Nº {num_controle}</b>", estilo_titulo))
             story.append(Spacer(1, 10))
             
-            # --- BLOCO 1: DADOS GERAIS ---
             dados_gerais = [
                 [Paragraph("<b>DADOS DA ATIVIDADE</b>", estilo_secao), ""],
                 [Paragraph(f"<b>Data da Atividade:</b> {item.get('data_atividade', 'N/A')}", estilo_texto), 
@@ -174,7 +169,6 @@ def gerar_pdf_apr(apr_id):
             story.append(tabela_geral)
             story.append(Spacer(1, 15))
             
-            # --- BLOCO 2: CHECKLIST DETALHADO ---
             dados_checklist = [
                 [Paragraph("<b>CHECKLIST DE SEGURANÇA E CONDIÇÕES</b>", estilo_secao), ""],
                 [Paragraph("<b>Item de Verificação</b>", estilo_texto_bold), Paragraph("<b>Status / Resposta</b>", estilo_texto_bold)],
@@ -205,7 +199,6 @@ def gerar_pdf_apr(apr_id):
             story.append(tabela_check)
             story.append(Spacer(1, 15))
             
-            # --- BLOCO 3: PARALISAÇÃO ---
             dados_paralisacao = [
                 [Paragraph("<b>STATUS DE INTERRUPÇÃO / PARALISAÇÃO</b>", estilo_secao), ""],
                 [Paragraph(f"<b>Houve Interrupção das Atividades:</b> {traduzir_bool(item.get('houve_paralisacao', 'N/A'))}", estilo_texto), ""],
@@ -228,7 +221,6 @@ def gerar_pdf_apr(apr_id):
             ]))
             story.append(tabela_paralisa)
             
-            # --- BLOCO 4: FOTOS DA PARALISAÇÃO (ATÉ 5 FOTOS DA LISTA) ---
             caminhos_fotos = item.get('foto_paralisacao')
             
             if caminhos_fotos and isinstance(caminhos_fotos, list) and len(caminhos_fotos) > 0:
@@ -245,7 +237,6 @@ def gerar_pdf_apr(apr_id):
                 story.append(tabela_foto_cab)
                 story.append(Spacer(1, 10))
                 
-                # Limita a exibição a no máximo 5 fotos
                 fotos_limitadas = caminhos_fotos[:5]
                 nome_bucket = "fotos_atendimentos"
                 
@@ -346,21 +337,25 @@ else:
                 tipo_servico = st.selectbox("TIPO DE SERVIÇO", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
             
             observacao = st.text_area("OBSERVAÇÃO")
-            foto_arquivo = st.file_uploader("FOTO DO SERVIÇO", type=['jpg', 'png', 'jpeg'])
+            
+            # MODIFICAÇÃO APLICADA AQUI: accept_multiple_files=True para permitir múltiplas fotos no atendimento
+            fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
             
             if st.form_submit_button("REGISTRAR ATENDIMENTO"):
                 if not cliente or not endereco or not protocolo or not metragem_cabo:
                     st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
                 else:
-                    url_foto = ""
-                    if foto_arquivo:
-                        try:
-                            timestamp = int(time.time())
-                            caminho = f"fotos/{timestamp}_{foto_arquivo.name}"
-                            supabase.storage.from_("fotos_atendimentos").upload(caminho, foto_arquivo.getvalue())
-                            url_foto = caminho
-                        except Exception as e:
-                            st.error(f"Erro ao subir foto: {e}")
+                    caminhos_fotos_atendimento = []
+                    if fotos_arquivos:
+                        # Faz o upload de cada foto selecionada (limitado a 5)
+                        for foto in fotos_arquivos[:5]:
+                            try:
+                                timestamp = int(time.time())
+                                caminho = f"fotos/{timestamp}_{foto.name}"
+                                supabase.storage.from_("fotos_atendimentos").upload(caminho, foto.getvalue())
+                                caminhos_fotos_atendimento.append(caminho)
+                            except Exception as e:
+                                st.error(f"Erro ao subir foto {foto.name}: {e}")
                     
                     if registrar_atendimento(
                         data_execucao, 
@@ -370,7 +365,7 @@ else:
                         mercado, 
                         tipo_servico, 
                         observacao, 
-                        url_foto, 
+                        caminhos_fotos_atendimento, # Salva a lista de caminhos
                         st.session_state.nome_tecnico, 
                         st.session_state.cpf_tecnico, 
                         metragem_cabo
@@ -398,7 +393,6 @@ else:
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
-        # Exibe mensagem de sucesso salva na sessão (se houver) e depois limpa
         if st.session_state.get("sucesso_apr"):
             st.success(st.session_state.sucesso_apr)
             st.balloons()
@@ -475,7 +469,6 @@ else:
             st.divider()
             houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
             
-            # ALTERAÇÃO APLICADA AQUI: accept_multiple_files=True para permitir até 5 fotos
             fotos_paralisacao = st.file_uploader("📸 Fotos da ocorrência (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
             
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
@@ -485,7 +478,6 @@ else:
             if botao_enviar:
                 caminhos_fotos_salvas = []
                 if fotos_paralisacao:
-                    # Limita o envio a no máximo 5 arquivos
                     for foto in fotos_paralisacao[:5]:
                         try:
                             timestamp = int(time.time())
@@ -516,7 +508,7 @@ else:
                         "integridade_poste": integridade_poste,
                         "houve_paralisacao": bool(houve_paralisacao),
                         "motivo_paralisacao": motivo_paralisacao,
-                        "foto_paralisacao": caminhos_fotos_salvas, # Salva a lista correta de caminhos
+                        "foto_paralisacao": caminhos_fotos_salvas,
                         "cpf_tecnico": cpf_logado,
                         "perfil": perfil_usuario
                     }).execute()
