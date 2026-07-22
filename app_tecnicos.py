@@ -20,38 +20,53 @@ st.markdown("""
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
+        /* Fundo geral limpo e corporativo */
         .stApp {
-            background-color: #ffffff;
+            background-color: #f8fafc;
             color: #1e293b;
         }
         
         .block-container {
             padding-top: 2rem;
             padding-bottom: 2rem;
+            max-width: 1000px;
         }
         
+        /* Campos de texto e inputs perfeitamente legíveis */
+        input, textarea, select, [data-baseweb="input"] {
+            background-color: #ffffff !important;
+            color: #1e293b !important;
+            border-color: #cbd5e1 !important;
+        }
+        
+        /* Botões profissionais */
         .stButton>button {
             width: 100%;
-            border-radius: 6px;
-            font-weight: bold;
-            height: 42px;
+            border-radius: 8px;
+            font-weight: 600;
+            height: 45px;
             background-color: #0284c7;
             color: white;
             border: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
         }
         .stButton>button:hover {
             background-color: #0369a1;
             color: white;
+            box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
         }
         
+        /* Abas estilizadas */
         .stTabs [data-baseweb="tab-list"] {
             gap: 8px;
         }
         .stTabs [data-baseweb="tab"] {
-            background-color: #f0f9ff;
+            background-color: #e2e8f0;
             border-radius: 6px 6px 0px 0px;
-            color: #0369a1;
-            font-weight: bold;
+            color: #475569;
+            font-weight: 600;
+            padding: 10px 20px;
         }
         .stTabs [aria-selected="true"] {
             background-color: #0284c7 !important;
