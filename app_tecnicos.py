@@ -385,7 +385,7 @@ else:
         if atendimentos.data:
             df = pd.DataFrame(atendimentos.data)
             
-            # Formata a coluna de data para o padrão DD/MM/AAAA se ela existir e tiver dados
+            # Formata a coluna de data para o padrão DD/MM/AAAA
             if 'data_execucao' in df.columns:
                 df['data_execucao'] = pd.to_datetime(df['data_execucao'], errors='coerce').dt.strftime('%d/%m/%Y')
             
@@ -393,52 +393,52 @@ else:
             df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
             st.dataframe(df_exibicao, use_container_width=True)
             
-            # --- VISUALIZADOR DE FOTOS ---
-            st.divider()
-            st.subheader("🖼️ Visualizador de Fotos")
-            
-            opcoes_atendimento = {}
-            for item in atendimentos.data:
-                # Formata a data para DD/MM/AAAA também no menu suspenso
-                data_original = item.get('data_execucao', '')
-                try:
-                    data_formatada = pd.to_datetime(data_original).strftime('%d/%m/%Y')
-                except Exception:
-                    data_formatada = data_original
+            # --- VISUALIZADOR DE FOTOS (EXCLUSIVO PARA ADMINISTRADOR) ---
+            if st.session_state.get("perfil") == "Administrador":
+                st.divider()
+                st.subheader("🖼️ Visualizador de Fotos")
                 
-                label = f"Data: {data_formatada} | Prot: {item.get('protocolo', 'N/A')} | Cliente: {item.get('cliente', 'N/A')}"
-                opcoes_atendimento[label] = item
-                
-            atendimento_selecionado = st.selectbox(
-                "Selecione um atendimento para visualizar as fotos:", 
-                ["Selecione..."] + list(opcoes_atendimento.keys())
-            )
-            
-            if atendimento_selecionado != "Selecione...":
-                dados_selecionados = opcoes_atendimento[atendimento_selecionado]
-                fotos = dados_selecionados.get("foto")
-                
-                if not fotos or fotos == ['{}'] or fotos == []:
-                    st.info("Nenhuma foto anexada a este atendimento.")
-                else:
-                    if isinstance(fotos, str):
-                        fotos = [fotos]
-                        
-                    fotos_validas = [f for f in fotos if f and f.strip() != "" and f != '{}']
+                opcoes_atendimento = {}
+                for item in atendimentos.data:
+                    data_original = item.get('data_execucao', '')
+                    try:
+                        data_formatada = pd.to_datetime(data_original).strftime('%d/%m/%Y')
+                    except Exception:
+                        data_formatada = data_original
                     
-                    if len(fotos_validas) > 0:
-                        st.write(f"**{len(fotos_validas)} foto(s) encontrada(s):**")
-                        cols = st.columns(len(fotos_validas))
-                        
-                        for idx, caminho_foto in enumerate(fotos_validas):
-                            with cols[idx]:
-                                try:
-                                    res_bytes = supabase.storage.from_("fotos_atendimentos").download(caminho_foto)
-                                    st.image(res_bytes, caption=f"Anexo {idx+1}", use_column_width=True)
-                                except Exception as e:
-                                    st.error(f"Erro ao carregar a foto {idx+1}")
+                    label = f"Data: {data_formatada} | Prot: {item.get('protocolo', 'N/A')} | Cliente: {item.get('cliente', 'N/A')}"
+                    opcoes_atendimento[label] = item
+                    
+                atendimento_selecionado = st.selectbox(
+                    "Selecione um atendimento para visualizar as fotos:", 
+                    ["Selecione..."] + list(opcoes_atendimento.keys())
+                )
+                
+                if atendimento_selecionado != "Selecione...":
+                    dados_selecionados = opcoes_atendimento[atendimento_selecionado]
+                    fotos = dados_selecionados.get("foto")
+                    
+                    if not fotos or fotos == ['{}'] or fotos == []:
+                        st.info("Nenhuma foto anexada a este atendimento.")
                     else:
-                        st.info("Nenhuma foto válida anexada a este atendimento.")
+                        if isinstance(fotos, str):
+                            fotos = [fotos]
+                            
+                        fotos_validas = [f for f in fotos if f and f.strip() != "" and f != '{}']
+                        
+                        if len(fotos_validas) > 0:
+                            st.write(f"**{len(fotos_validas)} foto(s) encontrada(s):**")
+                            cols = st.columns(len(fotos_validas))
+                            
+                            for idx, caminho_foto in enumerate(fotos_validas):
+                                with cols[idx]:
+                                    try:
+                                        res_bytes = supabase.storage.from_("fotos_atendimentos").download(caminho_foto)
+                                        st.image(res_bytes, caption=f"Anexo {idx+1}", use_column_width=True)
+                                    except Exception as e:
+                                        st.error(f"Erro ao carregar a foto {idx+1}")
+                        else:
+                            st.info("Nenhuma foto válida anexada a este atendimento.")
                         
         else:
             st.info("Nenhum atendimento registrado.")
