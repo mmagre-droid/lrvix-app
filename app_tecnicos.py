@@ -246,10 +246,9 @@ def gerar_pdf_apr(apr_id):
                 story.append(Spacer(1, 10))
                 
                 try:
-                    # O bucket onde a foto está salva (substitua "fotos" se o nome do seu bucket no Supabase for diferente)
-                    nome_bucket = "foto_paralisacao" 
+                    # O NOME CORRETO DO BUCKET COPIADO DO SEU SUPABASE:
+                    nome_bucket = "fotos_atendimentos" 
                     
-                    # Baixa a imagem do Storage do Supabase para um arquivo temporário local
                     res_bytes = supabase.storage.from_(nome_bucket).download(caminho_foto_storage)
                     
                     if res_bytes:
@@ -257,7 +256,6 @@ def gerar_pdf_apr(apr_id):
                         with open(temp_img_path, "wb") as f:
                             f.write(res_bytes)
                         
-                        # Adiciona a imagem baixada ao PDF centralizada
                         img = Image(temp_img_path, width=280, height=210)
                         img.hAlign = 'CENTER'
                         story.append(img)
