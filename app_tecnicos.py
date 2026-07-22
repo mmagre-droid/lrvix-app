@@ -455,7 +455,6 @@ else:
                         "perfil": perfil_usuario
                     }).execute()
                     
-                    # Salva a mensagem na sessão para exibir após o rerun e limpa os campos via clear_on_submit=True
                     st.session_state["sucesso_apr"] = f"APR {numero_gerado} registrada com sucesso!"
                     st.rerun()
                 except Exception as e:
