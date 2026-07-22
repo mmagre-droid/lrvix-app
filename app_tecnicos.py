@@ -119,6 +119,19 @@ def gerar_pdf_apr(apr_id):
         if dados_apr.data:
             item = dados_apr.data[0]
             num_controle = item.get('numero_controle') or item.get('id') or 'N/A'
+            cpf_tec = item.get('cpf_tecnico', '')
+            
+            # Busca o nome do técnico no banco de dados usando o CPF salvo na APR
+            nome_tecnico = "Não informado"
+            if cpf_tec:
+                try:
+                    res_tec = supabase.table("tecnicos").select("nome").eq("cpf", cpf_tec).execute()
+                    if res_tec.data and len(res_tec.data) > 0:
+                        nome_tecnico = res_tec.data[0].get("nome", cpf_tec)
+                    else:
+                        nome_tecnico = cpf_tec
+                except Exception:
+                    nome_tecnico = cpf_tec
             
             # --- CABEÇALHO ---
             story.append(Paragraph("<b>LRVIX - SISTEMA DE GESTÃO TÉCNICA</b>", estilo_titulo))
@@ -130,13 +143,13 @@ def gerar_pdf_apr(apr_id):
                 [Paragraph("<b>DADOS DA ATIVIDADE</b>", estilo_secao), ""],
                 [Paragraph(f"<b>Data da Atividade:</b> {item.get('data_atividade', 'N/A')}", estilo_texto), 
                  Paragraph(f"<b>Placa do Veículo:</b> {item.get('placa_veiculo', 'N/A')}", estilo_texto)],
-                [Paragraph(f"<b>Local da Atividade:</b> {item.get('local_atividade', 'N/A')}", estilo_texto), ""]
+                [Paragraph(f"<b>Local da Atividade:</b> {item.get('local_atividade', 'N/A')}", estilo_texto), 
+                 Paragraph(f"<b>Técnico Responsável:</b> {nome_tecnico}", estilo_texto)]
             ]
             
             tabela_geral = Table(dados_gerais, colWidths=[270, 270])
             tabela_geral.setStyle(TableStyle([
                 ('SPAN', (0, 0), (1, 0)), # Mescla o cabeçalho da seção
-                ('SPAN', (0, 2), (1, 2)), # Mescla o local para ocupar a largura toda
                 ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')), # Cor de fundo do cabeçalho
                 ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
@@ -169,7 +182,7 @@ def gerar_pdf_apr(apr_id):
             tabela_check.setStyle(TableStyle([
                 ('SPAN', (0, 0), (1, 0)),
                 ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')),
-                ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#e5e7eb')), # Fundo cinza claro para o cabeçalho da tabela
+                ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#e5e7eb')),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
@@ -208,6 +221,15 @@ def gerar_pdf_apr(apr_id):
             story.append(Paragraph("Detalhes da APR não encontrados no banco.", estilo_texto))
             
         doc.build(story)
+        return nome_arquivo
+        
+    except Exception as e:
+        pasta_destino = "aprs_geradas"
+        os.makedirs(pasta_destino, exist_ok=True)
+        nome_arquivo = os.path.join(pasta_destino, "erro_apr.pdf")
+        c = canvas.Canvas(nome_arquivo, pagesize=letter)
+        c.drawString(50, 750, f"Erro ao gerar PDF: {str(e)}")
+        c.save()
         return nome_arquivo
         
     except Exception as e:
