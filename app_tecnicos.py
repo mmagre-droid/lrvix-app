@@ -247,7 +247,7 @@ def gerar_pdf_apr(apr_id):
                 
                 try:
                     # O bucket onde a foto está salva (substitua "fotos" se o nome do seu bucket no Supabase for diferente)
-                    nome_bucket = "fotos" 
+                    nome_bucket = "foto_paralisacao" 
                     
                     # Baixa a imagem do Storage do Supabase para um arquivo temporário local
                     res_bytes = supabase.storage.from_(nome_bucket).download(caminho_foto_storage)
