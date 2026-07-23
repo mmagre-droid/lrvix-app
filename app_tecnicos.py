@@ -235,7 +235,7 @@ def gerar_pdf_apr(apr_id):
             nome_tecnico = "Não informado"
             if cpf_tec:
                 try:
-                    res_tec = supabase.table("tecnicos").select("nome").eq("cpf", cpf_tec).execute()
+                    res_tec = supabase.table("TECNICOS").select("nome").eq("cpf", cpf_tec).execute()
                     if res_tec.data and len(res_tec.data) > 0:
                         nome_tecnico = res_tec.data[0].get("nome", cpf_tec)
                     else:
@@ -409,7 +409,89 @@ if not st.session_state.logado:
                         st.error("❌ CPF ou Senha incorretos.")
                 except Exception as e:
                     st.error(f"Erro na conexão com o banco: {e}")
-with aba2: 
+        with tab2:
+            nome = st.text_input("Nome Completo")
+            cpf = st.text_input("CPF (somente números)")
+            email = st.text_input("E-mail")
+            telefone = st.text_input("Telefone")
+            senha = st.text_input("Senha", type="password", key="cad_senha")
+            confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
+            st.write("")
+            if st.button("Finalizar Cadastro", use_container_width=True):
+                if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
+                    st.success("Cadastro realizado com sucesso!")
+
+else:
+    # --- CABEÇALHO / BARRA SUPERIOR PROFISSIONAL ---
+    col_h1, col_h2 = st.columns([3, 1])
+    with col_h1:
+        st.markdown(f"### ⚡ Olá, **{st.session_state.nome_tecnico}**")
+        st.caption(f"Perfil de Acesso: **{st.session_state.perfil}**")
+    with col_h2:
+        if st.button("🚪 Sair do Sistema", use_container_width=True):
+            st.session_state.logado = False
+            st.rerun()
+
+    st.markdown("---")
+    
+    if st.session_state.perfil == "Administrador":
+        aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "⚙️ ADMIN"])
+    else:
+        aba1, aba2, aba3 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR"])
+        aba4 = None
+
+    with aba1:
+        st.subheader("Novo Lançamento Operacional")
+        with st.form("form_atendimento", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            with c1:
+                data_execucao = st.date_input("DATA DA EXECUÇÃO", format="DD/MM/YYYY")
+                cliente = st.text_input("NOME DO CLIENTE")
+                endereco = st.text_input("ENDEREÇO")
+                metragem_cabo = st.text_input("CABO UTILIZADO")
+            with c2:
+                protocolo = st.text_input("PROTOCOLO")
+                mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
+                tipo_servico = st.selectbox("TIPO DE SERVIÇO", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
+            
+            observacao = st.text_area("OBSERVAÇÃO")
+            fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
+            
+            st.write("")
+            if st.form_submit_button("REGISTRAR ATENDIMENTO", use_container_width=True):
+                if not cliente or not endereco or not protocolo or not metragem_cabo:
+                    st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
+                else:
+                    valor_calculado = calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao)
+                    
+                    caminhos_fotos_atendimento = []
+                    if fotos_arquivos:
+                        for foto in fotos_arquivos[:5]:
+                            try:
+                                timestamp = int(time.time())
+                                caminho = f"fotos/{timestamp}_{foto.name}"
+                                supabase.storage.from_("fotos_atendimentos").upload(caminho, foto.getvalue())
+                                caminhos_fotos_atendimento.append(caminho)
+                            except Exception as e:
+                                st.error(f"Erro ao subir foto {foto.name}: {e}")
+                    
+                    if registrar_atendimento(
+                        data_execucao, 
+                        cliente, 
+                        endereco, 
+                        protocolo, 
+                        mercado, 
+                        tipo_servico, 
+                        observacao, 
+                        caminhos_fotos_atendimento, 
+                        st.session_state.nome_tecnico, 
+                        st.session_state.cpf_tecnico, 
+                        metragem_cabo,
+                        valor_calculado
+                    ):
+                        st.success("Atendimento registrado com sucesso!")
+            
+    with aba2: 
         st.subheader("Lista de Atendimentos")
         
         query = supabase.table("ATENDIMENTO").select("*")
@@ -552,7 +634,7 @@ with aba2:
         else:
             st.info("Nenhum atendimento registrado.")
 
-with aba3:
+    with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
         if st.session_state.get("sucesso_apr"):
@@ -682,93 +764,91 @@ with aba3:
                     st.error(f"Erro ao salvar APR no banco: {e}")
 
 if aba4 is not None: 
-        with aba4:
-            st.subheader("⚙️ PAINEL ADMINISTRATIVO")
-            
-            opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "💰 Tabela LPU"], horizontal=True)
-            senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
+    with aba4:
+        st.subheader("⚙️ PAINEL ADMINISTRATIVO")
+        
+        opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "💰 Tabela LPU"], horizontal=True)
+        senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
 
-            if senha_admin == "123456":
-                if opcao_admin == "Perfis de Usuários":
-                    st.write("### 👤 Gerenciamento de Perfis")
-                    try:
-                        dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
-                        df_tecnicos = pd.DataFrame(dados_tecnicos.data)
-                        edited_df = st.data_editor(df_tecnicos, use_container_width=True)
+        if senha_admin == "123456":
+            if opcao_admin == "Perfis de Usuários":
+                st.write("### 👤 Gerenciamento de Perfis")
+                try:
+                    dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
+                    df_tecnicos = pd.DataFrame(dados_tecnicos.data)
+                    edited_df = st.data_editor(df_tecnicos, use_container_width=True)
 
-                        if st.button("SALVAR PERFIS", use_container_width=True):
-                            for index, row in edited_df.iterrows():
-                                supabase.table("TECNICOS").update({
-                                    "nome": row["nome"],
-                                    "cpf": row["cpf"],
-                                    "email": row["email"],
-                                    "telefone": row["telefone"],
-                                    "ativo": row["ativo"],
-                                    "perfil": row["perfil"]
-                                }).eq("id", row["id"]).execute()
-                            st.success("Perfis atualizados!")
+                    if st.button("SALVAR PERFIS", use_container_width=True):
+                        for index, row in edited_df.iterrows():
+                            supabase.table("TECNICOS").update({
+                                "nome": row["nome"],
+                                "cpf": row["cpf"],
+                                "email": row["email"],
+                                "telefone": row["telefone"],
+                                "ativo": row["ativo"],
+                                "perfil": row["perfil"]
+                            }).eq("id", row["id"]).execute()
+                        st.success("Perfis atualizados!")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao carregar perfis: {e}")
+
+            elif opcao_admin == "💰 Tabela LPU":
+                st.write("### 💰 Gerenciamento da LPU")
+                try:
+                    dados_lpu = supabase.table("LPU").select("*").execute()
+                    
+                    if not dados_lpu.data:
+                        df_lpu = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
+                    else:
+                        df_lpu = pd.DataFrame(dados_lpu.data)
+                    
+                    configuracao_colunas = {
+                        "id": None,
+                        "created_at": None,
+                        "servico": st.column_config.TextColumn("Serviço", required=True),
+                        "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
+                        "descricao": st.column_config.TextColumn("Descrição"),
+                        "min_metragem": st.column_config.NumberColumn("Mín Metragem", min_value=0.0),
+                        "max_metragem": st.column_config.NumberColumn("Máx Metragem", min_value=0.0)
+                    }
+                    
+                    df_editada_lpu = st.data_editor(
+                        df_lpu, 
+                        use_container_width=True, 
+                        num_rows="dynamic",
+                        column_config=configuracao_colunas,
+                        disabled=["id", "created_at"]
+                    )
+
+                    if st.button("SALVAR LPU", use_container_width=True):
+                        with st.spinner("Salvando..."):
+                            for index, row in df_editada_lpu.iterrows():
+                                servico_val = row.get("servico")
+                                valor_val = row.get("valor")
+                                
+                                if not servico_val or pd.isna(servico_val):
+                                    continue
+                                    
+                                id_val = row.get("id")
+                                descricao_val = row.get("descricao")
+                                min_m_val = row.get("min_metragem")
+                                max_m_val = row.get("max_metragem")
+                                
+                                dados_para_salvar = {
+                                    "servico": str(servico_val),
+                                    "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
+                                    "descricao": str(descricao_val) if pd.notnull(descricao_val) and descricao_val is not None else None,
+                                    "min_metragem": float(min_m_val) if pd.notnull(min_m_val) and min_m_val is not None else None,
+                                    "max_metragem": float(max_m_val) if pd.notnull(max_m_val) and max_m_val is not None else None
+                                }
+                                
+                                if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                    supabase.table("LPU").update(dados_para_salvar).eq("id", id_val).execute()
+                                else:
+                                    supabase.table("LPU").insert(dados_para_salvar).execute()
+                                    
+                            st.success("Tabela LPU atualizada com sucesso!")
                             st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao carregar perfis: {e}")
-
-                elif opcao_admin == "💰 Tabela LPU":
-                    st.write("### 💰 Gerenciamento da LPU")
-                    try:
-                        dados_lpu = supabase.table("LPU").select("*").execute()
-                        
-                        if not dados_lpu.data:
-                            df_lpu = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
-                        else:
-                            df_lpu = pd.DataFrame(dados_lpu.data)
-                        
-                        configuracao_colunas = {
-                            "id": None,
-                            "created_at": None,
-                            "servico": st.column_config.TextColumn("Serviço", required=True),
-                            "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
-                            "descricao": st.column_config.TextColumn("Descrição"),
-                            "min_metragem": st.column_config.NumberColumn("Mín Metragem", min_value=0.0),
-                            "max_metragem": st.column_config.NumberColumn("Máx Metragem", min_value=0.0)
-                        }
-                        
-                        df_editada_lpu = st.data_editor(
-                            df_lpu, 
-                            use_container_width=True, 
-                            num_rows="dynamic",
-                            column_config=configuracao_colunas,
-                            disabled=["id", "created_at"]
-                        )
-
-                        if st.button("SALVAR LPU", use_container_width=True):
-                            with st.spinner("Salvando..."):
-                                for index, row in df_editada_lpu.iterrows():
-                                    servico_val = row.get("servico")
-                                    valor_val = row.get("valor")
-                                    
-                                    if not servico_val or pd.isna(servico_val):
-                                        continue
-                                        
-                                    id_val = row.get("id")
-                                    descricao_val = row.get("descricao")
-                                    min_m_val = row.get("min_metragem")
-                                    max_m_val = row.get("max_metragem")
-                                    
-                                    dados_para_salvar = {
-                                        "servico": str(servico_val),
-                                        "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
-                                        "descricao": str(descricao_val) if pd.notnull(descricao_val) and descricao_val is not None else None,
-                                        "min_metragem": float(min_m_val) if pd.notnull(min_m_val) and min_m_val is not None else None,
-                                        "max_metragem": float(max_m_val) if pd.notnull(max_m_val) and max_m_val is not None else None
-                                    }
-                                    
-                                    if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
-                                        supabase.table("LPU").update(dados_para_salvar).eq("id", id_val).execute()
-                                    else:
-                                        supabase.table("LPU").insert(dados_para_salvar).execute()
-                                        
-                                st.success("Tabela LPU atualizada com sucesso!")
-                                st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao acessar tabela LPU: {e}")
-    
-    
+                except Exception as e:
+                    st.error(f"Erro ao acessar tabela LPU: {e}")
