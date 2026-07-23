@@ -13,9 +13,14 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- ESTILIZAÇÃO CSS LIMPA E ORGANIZADA ---
+# --- ESTILIZAÇÃO CSS (OCULTA CABEÇALHO, MENU E ÍCONE DO GITHUB) ---
 st.markdown("""
     <style>
+        /* Oculta completamente o cabeçalho superior padrão do Streamlit */
+        header {visibility: hidden !important;}
+        #MainMenu {visibility: hidden !important;}
+        footer {visibility: hidden !important;}
+        
         /* Ajuste de espaçamento geral */
         .block-container {
             padding-top: 2rem;
