@@ -647,7 +647,7 @@ else:
                         dados_lpu = supabase.table("LPU").select("*").execute()
                         
                         if not dados_lpu.data:
-                            df_lpu = pd.DataFrame(columns=["servico", "valor"])
+                            df_lpu = pd.DataFrame(columns=["id", "created_at", "descricao", "valor", "servico"])
                         else:
                             df_lpu = pd.DataFrame(dados_lpu.data)
                         
@@ -660,16 +660,29 @@ else:
                         if st.button("SALVAR LPU", use_container_width=True):
                             with st.spinner("Salvando..."):
                                 for index, row in df_editada_lpu.iterrows():
-                                    if "id" in row and pd.notnull(row["id"]):
-                                        supabase.table("LPU").update({
-                                            "servico": row["servico"],
-                                            "valor": row["valor"]
-                                        }).eq("id", row["id"]).execute()
-                                    elif row["servico"]:
-                                        supabase.table("LPU").insert({
-                                            "servico": row["servico"],
-                                            "valor": row["valor"]
-                                        }).execute()
+                                    servico_val = row.get("servico")
+                                    valor_val = row.get("valor")
+                                    
+                                    # Ignora linhas sem nome de serviço
+                                    if not servico_val or pd.isna(servico_val):
+                                        continue
+                                        
+                                    id_val = row.get("id")
+                                    descricao_val = row.get("descricao")
+                                    
+                                    # Prepara o dicionário de dados garantindo tratamento de nulos
+                                    dados_para_salvar = {
+                                        "servico": str(servico_val),
+                                        "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
+                                        "descricao": str(descricao_val) if pd.notnull(descricao_val) and descricao_val is not None else None
+                                    }
+                                    
+                                    # Se tem ID válido, atualiza; senão, insere novo registro
+                                    if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                        supabase.table("LPU").update(dados_para_salvar).eq("id", id_val).execute()
+                                    else:
+                                        supabase.table("LPU").insert(dados_para_salvar).execute()
+                                        
                                 st.success("Tabela LPU atualizada com sucesso!")
                                 st.rerun()
                     except Exception as e:
