@@ -13,13 +13,23 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- ESTILIZAÇÃO CSS (OCULTA CABEÇALHO, MENU E ÍCONE DO GITHUB) ---
+# --- ESTILIZAÇÃO CSS (OCULTA CABEÇALHO, MENU, ÍCONES FLUTUANTES E GITHUB) ---
 st.markdown("""
     <style>
         /* Oculta completamente o cabeçalho superior padrão do Streamlit */
         header {visibility: hidden !important;}
         #MainMenu {visibility: hidden !important;}
         footer {visibility: hidden !important;}
+        
+        /* Oculta os ícones flutuantes do canto inferior direito (Status / Widget / Menu) */
+        [data-testid="stStatusWidget"] {
+            visibility: hidden !important;
+            display: none !important;
+        }
+        div[data-testid="stToolbar"] {
+            visibility: hidden !important;
+            display: none !important;
+        }
         
         /* Ajuste de espaçamento geral */
         .block-container {
@@ -801,7 +811,6 @@ else:
                         st.error("⚠️ Preencha os campos obrigatórios (Cliente e Seriais).")
                     else:
                         try:
-                            # 1. Registra a saída do novo (atualiza status para Instalado)
                             supabase.table("ESTOQUE").insert({
                                 "equipamento": equipamento_novo,
                                 "serial": serial_saida,
@@ -810,7 +819,6 @@ else:
                                 "observacao": f"Saída por troca. Motivo: {motivo_troca}"
                             }).execute()
                             
-                            # 2. Registra a entrada do velho no estoque
                             supabase.table("ESTOQUE").insert({
                                 "equipamento": equipamento_velho,
                                 "serial": serial_entrada,
@@ -819,7 +827,6 @@ else:
                                 "observacao": f"Retirado do cliente {cliente_troca}. Motivo: {motivo_troca}"
                             }).execute()
                             
-                            # 3. Registra no histórico geral de movimentações
                             supabase.table("HISTORICO_ESTOQUE").insert({
                                 "tipo_movimentacao": "TROCA",
                                 "equipamento": f"Novo: {equipamento_novo} | Velho: {equipamento_velho}",
