@@ -433,35 +433,7 @@ if not st.session_state.logado:
                 colunas_para_ocultar.extend(['foto', 'responsavel', 'valor_total'])
             
             df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
-            
-            # --- FORÇAR ALINHAMENTO À ESQUERDA NA TABELA ---
-            st.markdown("""
-                <style>
-                [data-testid="stDataFrame"] div[data-testid="stTable"] td, 
-                [data-testid="stDataFrame"] div[data-testid="stTable"] th {
-                    text-align: left !important;
-                }
-                </style>
-            """, unsafe_allow_html=True)
-            
             st.dataframe(df_exibicao, use_container_width=True)
-            
-            # --- SEÇÃO DEDICADA PARA COPIAR AS OBSERVAÇÕES (OPÇÃO 2) ---
-            st.write("")
-            with st.expander("📋 Copiar Observações dos Atendimentos"):
-                st.info("Utilize os campos abaixo para selecionar e copiar as observações facilmente com Ctrl + C:")
-                for idx, row in df.iterrows():
-                    obs = row.get('observacao', '')
-                    prot = row.get('protocolo', 'N/A')
-                    cliente = row.get('cliente', 'N/A')
-                    data_atend = row.get('data_execucao', 'N/A')
-                    
-                    if obs and str(obs).strip() != "" and str(obs).lower() != "nan":
-                        st.text_input(
-                            label=f"Data: {data_atend} | Protocolo: {prot} | Cliente: {cliente}", 
-                            value=str(obs), 
-                            key=f"input_obs_{idx}"
-                        )
             
             # --- TABELA DE PROJEÇÃO E INDICADORES ---
             st.write("")
