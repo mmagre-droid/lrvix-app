@@ -71,10 +71,6 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
         return False
 
 def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao):
-    """
-    Calcula o valor do atendimento baseando-se nas faixas de metragem e tipo de serviço da LPU,
-    incluindo o cálculo proporcional de adicionais para metragens acima do teto cadastrado.
-    """
     try:
         res_lpu = supabase.table("LPU").select("*").execute()
         if not res_lpu.data:
@@ -91,7 +87,6 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao):
         except ValueError:
             metragem = 0.0
             
-        # 1. Procura se existe faixa de metragem compatível exata na LPU
         for item in res_lpu.data:
             min_m = item.get("min_metragem")
             max_m = item.get("max_metragem")
@@ -100,10 +95,8 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao):
                 if float(min_m) <= metragem <= float(max_m):
                     return float(item.get("valor", 0.0))
         
-        # 2. Se a metragem for maior que a maior faixa cadastrada, calcula o adicional por bloco (ex: a cada 100m)
         faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem") is not None]
         if faixas_com_metragem and metragem > 0:
-            # Ordena pela maior metragem máxima para encontrar o teto
             maior_faixa = max(faixas_com_metragem, key=lambda x: float(x.get("max_metragem", 0)))
             teto_max = float(maior_faixa.get("max_metragem", 0))
             
@@ -111,7 +104,6 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao):
                 valor_base = float(maior_faixa.get("valor", 0.0))
                 excedente = metragem - teto_max
                 
-                # Busca na LPU se existe um item específico de adicional por bloco (ex: ADCIONAL_100 ou similar)
                 valor_adicional_bloco = 0.0
                 for item in res_lpu.data:
                     serv_nome = str(item.get("servico", "")).strip().upper()
@@ -119,15 +111,12 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao):
                         valor_adicional_bloco = float(item.get("valor", 0.0))
                         break
                 
-                # Se não achar um item específico de adicional, estima proporcionalmente com base na última faixa
                 if valor_adicional_bloco == 0.0 and teto_max > 0:
-                    # Assume proporcional ao bloco de 100m baseado na faixa limite
                     valor_adicional_bloco = valor_base * (100.0 / teto_max)
                 
                 blocos_extras = (excedente // 100.0) + (1 if excedente % 100.0 > 0 else 0)
                 return valor_base + (blocos_extras * valor_adicional_bloco)
                     
-        # 3. Se não caiu em faixa de metragem, busca pelo nome do serviço fixo
         for item in res_lpu.data:
             nome_servico = str(item.get("servico", "")).strip().lower()
             if nome_servico == servico_lower:
@@ -435,10 +424,10 @@ else:
     st.markdown("---")
     
     if st.session_state.perfil == "Administrador":
-        aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "⚙️ ADMIN"])
+        aba1, aba2, aba3, aba4, aba5 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "📦 ESTOQUE", "⚙️ ADMIN"])
     else:
-        aba1, aba2, aba3 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR"])
-        aba4 = None
+        aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "📦 ESTOQUE"])
+        aba5 = None
 
     with aba1:
         st.subheader("Novo Lançamento Operacional")
@@ -507,52 +496,36 @@ else:
             if 'data_execucao' in df.columns:
                 df['data_execucao'] = pd.to_datetime(df['data_execucao'], errors='coerce').dt.strftime('%d/%m/%Y')
             
-            # --- DEFINIÇÃO DAS COLUNAS OCULTAS POR PERFIL ---
             colunas_para_ocultar = ['id', 'created_at', 'cpf_tecnico']
             
-            # Se não for Administrador (perfil Técnico), oculta foto, responsavel e valor_total
             if st.session_state.perfil != "Administrador":
                 colunas_para_ocultar.extend(['foto', 'responsavel', 'valor_total'])
             
             df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
             st.dataframe(df_exibicao, use_container_width=True)
             
-            # --- TABELA DE PROJEÇÃO E INDICADORES ---
             st.write("")
             st.markdown("### 📊 Indicadores e Projeção")
             
             try:
-                # Tratamento de dados para os cálculos
                 df_calc = pd.DataFrame(atendimentos.data)
-                
-                # Dias trabalhados (datas distintas)
                 dias_trabalhados = df_calc['data_execucao'].nunique() if 'data_execucao' in df_calc.columns else 0
-                
-                # Padronizar coluna tipo_servico para maiúsculo para contagem correta
                 df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
                 
-                # Contagem de serviços
                 qtd_interno = len(df_calc[df_calc['tipo_servico_upper'] == 'INTERNO'])
                 qtd_externo = len(df_calc[df_calc['tipo_servico_upper'] == 'EXTERNO'])
                 qtd_improdutivo = len(df_calc[df_calc['tipo_servico_upper'] == 'IMPRODUTIVO'])
                 
-                # Total de serviços produtivos (Interno + Externo)
                 total_servicos_produtivos = qtd_interno + qtd_externo
-                
-                # Média de serviço (desconsiderando improdutivos: total produtivo / dias trabalhados)
                 media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
                 
-                # Ticket médio e Soma Geral (desconsiderando improdutivos para o ticket médio)
                 df_calc['valor_total'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
-                
-                # Filtra apenas os produtivos para o ticket médio
                 df_produtivos = df_calc[df_calc['tipo_servico_upper'].isin(['INTERNO', 'EXTERNO'])]
                 soma_valor_produtivos = df_produtivos['valor_total'].sum()
                 
                 ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
                 total_geral = df_calc['valor_total'].sum()
                 
-                # Montagem visual da tabela em HTML semelhante ao layout solicitado
                 tabela_html = f"""
                 <div style="overflow-x:auto;">
                     <table style="width:100%; border-collapse: collapse; text-align: center; font-family: sans-serif; font-size: 14px;">
@@ -763,8 +736,126 @@ else:
                 except Exception as e:
                     st.error(f"Erro ao salvar APR no banco: {e}")
 
-    if aba4 is not None: 
-        with aba4:
+    with aba4:
+        st.subheader("📦 GESTÃO DE ESTOQUE E MOVIMENTAÇÕES")
+        
+        sub_aba1, sub_aba2, sub_aba3 = st.tabs(["➕ Entrada de Mercadoria", "🔄 Troca de Equipamento", "📋 Saldo e Histórico"])
+        
+        with sub_aba1:
+            st.markdown("### Registrar Entrada de Novos Itens / Equipamentos")
+            with st.form("form_entrada_estoque", clear_on_submit=True):
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    item_nome = st.text_input("Nome do Equipamento / Material (ex: ONU, Roteiro, Cabo)")
+                    serial_novo = st.text_input("Número de Série / MAC (Opcional se for material genérico)")
+                with ec2:
+                    quantidade = st.number_input("Quantidade", min_value=1, value=1, step=1)
+                    origem_nota = st.text_input("Nota Fiscal / Fornecedor / Origem")
+                
+                obs_entrada = st.text_area("Observações da Entrada")
+                
+                if st.form_submit_button("REGISTRAR ENTRADA", use_container_width=True):
+                    if not item_nome:
+                        st.error("⚠️ Informe o nome do item.")
+                    else:
+                        try:
+                            supabase.table("ESTOQUE").insert({
+                                "equipamento": item_nome,
+                                "serial": serial_novo if serial_novo else "N/A",
+                                "status": "DISPONIVEL",
+                                "localizacao": "ESTOQUE CENTRAL",
+                                "observacao": obs_entrada
+                            }).execute()
+                            
+                            supabase.table("HISTORICO_ESTOQUE").insert({
+                                "tipo_movimentacao": "ENTRADA",
+                                "equipamento": item_nome,
+                                "serial": serial_novo if serial_novo else "N/A",
+                                "responsavel": st.session_state.nome_tecnico,
+                                "detalhes": f"Entrada de {quantidade} un. Origem: {obs_entrada or 'N/A'}"
+                            }).execute()
+                            
+                            st.success("Entrada registrada com sucesso no estoque!")
+                        except Exception as e:
+                            st.error(f"Erro ao registrar entrada: {e}")
+
+        with sub_aba2:
+            st.markdown("### Registrar Troca de Equipamento (Cliente)")
+            st.info("O equipamento **novo** sai do estoque para o cliente, e o equipamento **velho** (defeituoso/retirado) entra no estoque.")
+            
+            with st.form("form_troca_equipamento", clear_on_submit=True):
+                tc1, tc2 = st.columns(2)
+                with tc1:
+                    cliente_troca = st.text_input("Nome do Cliente / Protocolo")
+                    equipamento_novo = st.text_input("Nome do Equipamento Novo (ex: ONU Huawei)")
+                    serial_saida = st.text_input("Serial do Equipamento NOVO que está saindo")
+                with tc2:
+                    equipamento_velho = st.text_input("Nome do Equipamento Velho / Retirado")
+                    serial_entrada = st.text_input("Serial do Equipamento VELHO que está entrando")
+                    status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"])
+                
+                motivo_troca = st.text_area("Motivo da Troca (ex: Queimado por raio, lentidão)")
+                
+                if st.form_submit_button("CONFIRMAR TROCA DE EQUIPAMENTOS", use_container_width=True):
+                    if not cliente_troca or not serial_saida or not serial_entrada:
+                        st.error("⚠️ Preencha os campos obrigatórios (Cliente e Seriais).")
+                    else:
+                        try:
+                            # 1. Registra a saída do novo (atualiza status para Instalado)
+                            supabase.table("ESTOQUE").insert({
+                                "equipamento": equipamento_novo,
+                                "serial": serial_saida,
+                                "status": f"INSTALADO - {cliente_troca}",
+                                "localizacao": f"CLIENTE: {cliente_troca}",
+                                "observacao": f"Saída por troca. Motivo: {motivo_troca}"
+                            }).execute()
+                            
+                            # 2. Registra a entrada do velho no estoque
+                            supabase.table("ESTOQUE").insert({
+                                "equipamento": equipamento_velho,
+                                "serial": serial_entrada,
+                                "status": status_velho,
+                                "localizacao": "ESTOQUE CENTRAL",
+                                "observacao": f"Retirado do cliente {cliente_troca}. Motivo: {motivo_troca}"
+                            }).execute()
+                            
+                            # 3. Registra no histórico geral de movimentações
+                            supabase.table("HISTORICO_ESTOQUE").insert({
+                                "tipo_movimentacao": "TROCA",
+                                "equipamento": f"Novo: {equipamento_novo} | Velho: {equipamento_velho}",
+                                "serial": f"Saiu: {serial_saida} / Entrou: {serial_entrada}",
+                                "responsavel": st.session_state.nome_tecnico,
+                                "detalhes": f"Cliente: {cliente_troca} | Motivo: {motivo_troca}"
+                            }).execute()
+                            
+                            st.success("Troca registrada com sucesso! Equipamento novo baixado e velho adicionado ao estoque.")
+                        except Exception as e:
+                            st.error(f"Erro ao processar troca: {e}")
+
+        with sub_aba3:
+            st.markdown("### Saldo Atual do Estoque e Histórico")
+            try:
+                res_estoque = supabase.table("ESTOQUE").select("*").execute()
+                if res_estoque.data:
+                    st.write("#### 📊 Itens Cadastrados no Estoque")
+                    df_est = pd.DataFrame(res_estoque.data)
+                    st.dataframe(df_est, use_container_width=True)
+                else:
+                    st.info("Nenhum item registrado no estoque.")
+                
+                st.divider()
+                res_hist = supabase.table("HISTORICO_ESTOQUE").select("*").order("created_at", desc=True).execute()
+                if res_hist.data:
+                    st.write("#### 📜 Histórico de Movimentações")
+                    df_hist = pd.DataFrame(res_hist.data)
+                    st.dataframe(df_hist, use_container_width=True)
+                else:
+                    st.info("Nenhuma movimentação registrada.")
+            except Exception as e:
+                st.error(f"Erro ao carregar dados de estoque: {e}")
+
+    if aba5 is not None: 
+        with aba5:
             st.subheader("⚙️ PAINEL ADMINISTRATIVO")
             
             opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "💰 Tabela LPU"], horizontal=True)
