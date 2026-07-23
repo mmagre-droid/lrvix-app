@@ -3,7 +3,7 @@ import pandas as pd
 import time
 from supabase import create_client
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen canvas
+from reportlab.pdfgen import canvas
 import os
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
