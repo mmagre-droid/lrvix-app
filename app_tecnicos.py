@@ -680,8 +680,8 @@ with aba3:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar APR no banco: {e}")
-    
-    if aba4 is not None: 
+
+if aba4 is not None: 
         with aba4:
             st.subheader("⚙️ PAINEL ADMINISTRATIVO")
             
@@ -770,3 +770,5 @@ with aba3:
                                 st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao acessar tabela LPU: {e}")
+    
+    
