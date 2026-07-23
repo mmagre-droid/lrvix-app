@@ -409,167 +409,169 @@ if not st.session_state.logado:
                         st.error("❌ CPF ou Senha incorretos.")
                 except Exception as e:
                     st.error(f"Erro na conexão com o banco: {e}")
-        with aba2: 
-        st.subheader("Lista de Atendimentos")
 
-query = supabase.table("ATENDIMENTO").select("*")
-
-if st.session_state.perfil != "Administrador":
-    query = query.eq("cpf_tecnico", st.session_state.cpf_tecnico)
-
-atendimentos = query.execute()
+    with aba2:
+    st.subheader("Lista de Atendimentos")
     
-if atendimentos.data:
-    df = pd.DataFrame(atendimentos.data)
+    query = supabase.table("ATENDIMENTO").select("*")
     
-    if 'data_execucao' in df.columns:
-        df['data_execucao'] = pd.to_datetime(df['data_execucao'], errors='coerce').dt.strftime('%d/%m/%Y')
-    
-    # --- DEFINIÇÃO DAS COLUNAS OCULTAS POR PERFIL ---
-    colunas_para_ocultar = ['id', 'created_at', 'cpf_tecnico']
-    
-    # Se não for Administrador (perfil Técnico), oculta foto, responsavel e valor_total
     if st.session_state.perfil != "Administrador":
-        colunas_para_ocultar.extend(['foto', 'responsavel', 'valor_total'])
+        query = query.eq("cpf_tecnico", st.session_state.cpf_tecnico)
     
-    df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
-    
-    # --- FORÇAR ALINHAMENTO À ESQUERDA NA TABELA ---
-    st.markdown("""
-        <style>
-        [data-testid="stDataFrame"] div[data-testid="stTable"] td, 
-        [data-testid="stDataFrame"] div[data-testid="stTable"] th {
-            text-align: left !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    st.dataframe(df_exibicao, use_container_width=True)
-    
-    # --- SEÇÃO DEDICADA PARA COPIAR AS OBSERVAÇÕES ---
-    st.write("")
-    with st.expander("📋 Copiar Observações dos Atendimentos"):
-        st.info("Utilize os campos abaixo para selecionar e copiar as observações facilmente com Ctrl + C:")
-        for idx, row in df.iterrows():
-            obs = row.get('observacao', '')
-            prot = row.get('protocolo', 'N/A')
-            cliente = row.get('cliente', 'N/A')
-            data_atend = row.get('data_execucao', 'N/A')
-            
-            if obs and str(obs).strip() != "" and str(obs).lower() != "nan":
-                st.text_input(
-                    label=f"Data: {data_atend} | Protocolo: {prot} | Cliente: {cliente}", 
-                    value=str(obs), 
-                    key=f"input_obs_{idx}"
-                )
-    
-    # --- TABELA DE PROJEÇÃO E INDICADORES ---
-    st.write("")
-    st.markdown("### 📊 Indicadores e Projeção")
-    
-    try:
-        df_calc = pd.DataFrame(atendimentos.data)
+    atendimentos = query.execute()
         
-        dias_trabalhados = df_calc['data_execucao'].nunique() if 'data_execucao' in df_calc.columns else 0
+    if atendimentos.data:
+        df = pd.DataFrame(atendimentos.data)
         
-        df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
+        if 'data_execucao' in df.columns:
+            df['data_execucao'] = pd.to_datetime(df['data_execucao'], errors='coerce').dt.strftime('%d/%m/%Y')
         
-        qtd_interno = len(df_calc[df_calc['tipo_servico_upper'] == 'INTERNO'])
-        qtd_externo = len(df_calc[df_calc['tipo_servico_upper'] == 'EXTERNO'])
-        qtd_improdutivo = len(df_calc[df_calc['tipo_servico_upper'] == 'IMPRODUTIVO'])
+        # --- DEFINIÇÃO DAS COLUNAS OCULTAS POR PERFIL ---
+        colunas_para_ocultar = ['id', 'created_at', 'cpf_tecnico']
         
-        total_servicos_produtivos = qtd_interno + qtd_externo
+        # Se não for Administrador (perfil Técnico), oculta foto, responsavel e valor_total
+        if st.session_state.perfil != "Administrador":
+            colunas_para_ocultar.extend(['foto', 'responsavel', 'valor_total'])
         
-        media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
+        df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
         
-        df_calc['valor_total'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
+        # --- FORÇAR ALINHAMENTO À ESQUERDA NA TABELA ---
+        st.markdown("""
+            <style>
+            [data-testid="stDataFrame"] div[data-testid="stTable"] td, 
+            [data-testid="stDataFrame"] div[data-testid="stTable"] th {
+                text-align: left !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
         
-        df_produtivos = df_calc[df_calc['tipo_servico_upper'].isin(['INTERNO', 'EXTERNO'])]
-        soma_valor_produtivos = df_produtivos['valor_total'].sum()
+        st.dataframe(df_exibicao, use_container_width=True)
         
-        ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
-        total_geral = df_calc['valor_total'].sum()
-        
-        tabela_html = f"""
-        <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse: collapse; text-align: center; font-family: sans-serif; font-size: 14px;">
-                <thead>
-                    <tr style="background-color: #4a90e2; color: white;">
-                        <th style="border: 1px solid #ddd; padding: 10px;" colspan="5">PROJEÇÃO E INDICADORES</th>
-                    </tr>
-                    <tr style="background-color: #5ba4e6; color: white;">
-                        <th style="border: 1px solid #ddd; padding: 8px;">DIAS TRABALHADOS</th>
-                        <th style="border: 1px solid #ddd; padding: 8px;">SERV. INTERNO / EXTERNO</th>
-                        <th style="border: 1px solid #ddd; padding: 8px;">MED. SERVIÇO</th>
-                        <th style="border: 1px solid #ddd; padding: 8px;">TICKET MÉDIO</th>
-                        <th style="border: 1px solid #ddd; padding: 8px;">T. GERAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr style="background-color: #f9f9f9; color: #333; font-weight: bold;">
-                        <td style="border: 1px solid #ddd; padding: 10px;">{dias_trabalhados}</td>
-                        <td style="border: 1px solid #ddd; padding: 10px;">{qtd_interno} Int / {qtd_externo} Ext (Tot: {total_servicos_produtivos})</td>
-                        <td style="border: 1px solid #ddd; padding: 10px;">{media_servico:.2f}</td>
-                        <td style="border: 1px solid #ddd; padding: 10px;">R$ {ticket_medio:,.2f}</td>
-                        <td style="border: 1px solid #ddd; padding: 10px;">R$ {total_geral:,.2f}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        """
-        st.markdown(tabela_html, unsafe_allow_html=True)
-        
-    except Exception as calc_err:
-        st.error(f"Erro ao calcular os indicadores: {calc_err}")
-    
-    if st.session_state.get("perfil") == "Administrador":
-        st.divider()
-        st.subheader("🖼️ Visualizador de Fotos")
-        
-        opcoes_atendimento = {}
-        for item in atendimentos.data:
-            data_original = item.get('data_execucao', '')
-            try:
-                data_formatada = pd.to_datetime(data_original).strftime('%d/%m/%Y')
-            except Exception:
-                data_formatada = data_original
-            
-            label = f"Data: {data_formatada} | Prot: {item.get('protocolo', 'N/A')} | Cliente: {item.get('cliente', 'N/A')}"
-            opcoes_atendimento[label] = item
-            
-        atendimento_selecionado = st.selectbox(
-            "Selecione um atendimento para visualizar as fotos:", 
-            ["Selecione..."] + list(opcoes_atendimento.keys())
-        )
-        
-        if atendimento_selecionado != "Selecione...":
-            dados_selecionados = opcoes_atendimento[atendimento_selecionado]
-            fotos = dados_selecionados.get("foto")
-            
-            if not fotos or fotos == ['{}'] or fotos == []:
-                st.info("Nenhuma foto anexada a este atendimento.")
-            else:
-                if isinstance(fotos, str):
-                    fotos = [fotos]
-                    
-                fotos_validas = [f for f in fotos if f and f.strip() != "" and f != '{}']
+        # --- SEÇÃO DEDICADA PARA COPIAR AS OBSERVAÇÕES ---
+        st.write("")
+        with st.expander("📋 Copiar Observações dos Atendimentos"):
+            st.info("Utilize os campos abaixo para selecionar e copiar as observações facilmente com Ctrl + C:")
+            for idx, row in df.iterrows():
+                obs = row.get('observacao', '')
+                prot = row.get('protocolo', 'N/A')
+                cliente = row.get('cliente', 'N/A')
+                data_atend = row.get('data_execucao', 'N/A')
                 
-                if len(fotos_validas) > 0:
-                    st.write(f"**{len(fotos_validas)} foto(s) encontrada(s):**")
-                    cols = st.columns(len(fotos_validas))
-                    
-                    for idx, caminho_foto in enumerate(fotos_validas):
-                        with cols[idx]:
-                            try:
-                                res_bytes = supabase.storage.from_("fotos_atendimentos").download(caminho_foto)
-                                st.image(res_bytes, caption=f"Anexo {idx+1}", use_column_width=True)
-                            except Exception as e:
-                                st.error(f"Erro ao carregar a foto {idx+1}")
+                if obs and str(obs).strip() != "" and str(obs).lower() != "nan":
+                    st.text_input(
+                        label=f"Data: {data_atend} | Protocolo: {prot} | Cliente: {cliente}", 
+                        value=str(obs), 
+                        key=f"input_obs_{idx}"
+                    )
+        
+        # --- TABELA DE PROJEÇÃO E INDICADORES ---
+        st.write("")
+        st.markdown("### 📊 Indicadores e Projeção")
+        
+        try:
+            df_calc = pd.DataFrame(atendimentos.data)
+            
+            dias_trabalhados = df_calc['data_execucao'].nunique() if 'data_execucao' in df_calc.columns else 0
+            
+            df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
+            
+            qtd_interno = len(df_calc[df_calc['tipo_servico_upper'] == 'INTERNO'])
+            qtd_externo = len(df_calc[df_calc['tipo_servico_upper'] == 'EXTERNO'])
+            qtd_improdutivo = len(df_calc[df_calc['tipo_servico_upper'] == 'IMPRODUTIVO'])
+            
+            total_servicos_produtivos = qtd_interno + qtd_externo
+            
+            media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
+            
+            df_calc['valor_total'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
+            
+            df_produtivos = df_calc[df_calc['tipo_servico_upper'].isin(['INTERNO', 'EXTERNO'])]
+            soma_valor_produtivos = df_produtivos['valor_total'].sum()
+            
+            ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
+            total_geral = df_calc['valor_total'].sum()
+            
+            tabela_html = f"""
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse: collapse; text-align: center; font-family: sans-serif; font-size: 14px;">
+                    <thead>
+                        <tr style="background-color: #4a90e2; color: white;">
+                            <th style="border: 1px solid #ddd; padding: 10px;" colspan="5">PROJEÇÃO E INDICADORES</th>
+                        </tr>
+                        <tr style="background-color: #5ba4e6; color: white;">
+                            <th style="border: 1px solid #ddd; padding: 8px;">DIAS TRABALHADOS</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">SERV. INTERNO / EXTERNO</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">MED. SERVIÇO</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">TICKET MÉDIO</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">T. GERAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background-color: #f9f9f9; color: #333; font-weight: bold;">
+                            <td style="border: 1px solid #ddd; padding: 10px;">{dias_trabalhados}</td>
+                            <td style="border: 1px solid #ddd; padding: 10px;">{qtd_interno} Int / {qtd_externo} Ext (Tot: {total_servicos_produtivos})</td>
+                            <td style="border: 1px solid #ddd; padding: 10px;">{media_servico:.2f}</td>
+                            <td style="border: 1px solid #ddd; padding: 10px;">R$ {ticket_medio:,.2f}</td>
+                            <td style="border: 1px solid #ddd; padding: 10px;">R$ {total_geral:,.2f}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            """
+            st.markdown(tabela_html, unsafe_allow_html=True)
+            
+        except Exception as calc_err:
+            st.error(f"Erro ao calcular os indicadores: {calc_err}")
+        
+        if st.session_state.get("perfil") == "Administrador":
+            st.divider()
+            st.subheader("🖼️ Visualizador de Fotos")
+            
+            opcoes_atendimento = {}
+            for item in atendimentos.data:
+                data_original = item.get('data_execucao', '')
+                try:
+                    data_formatada = pd.to_datetime(data_original).strftime('%d/%m/%Y')
+                except Exception:
+                    data_formatada = data_original
+                
+                label = f"Data: {data_formatada} | Prot: {item.get('protocolo', 'N/A')} | Cliente: {item.get('cliente', 'N/A')}"
+                opcoes_atendimento[label] = item
+                
+            atendimento_selecionado = st.selectbox(
+                "Selecione um atendimento para visualizar as fotos:", 
+                ["Selecione..."] + list(opcoes_atendimento.keys())
+            )
+            
+            if atendimento_selecionado != "Selecione...":
+                dados_selecionados = opcoes_atendimento[atendimento_selecionado]
+                fotos = dados_selecionados.get("foto")
+                
+                if not fotos or fotos == ['{}'] or fotos == []:
+                    st.info("Nenhuma foto anexada a este atendimento.")
                 else:
-                    st.info("Nenhuma foto válida anexada a este atendimento.")
-                
-else:
-    st.info("Nenhum atendimento registrado.")
+                    if isinstance(fotos, str):
+                        fotos = [fotos]
+                        
+                    fotos_validas = [f for f in fotos if f and f.strip() != "" and f != '{}']
+                    
+                    if len(fotos_validas) > 0:
+                        st.write(f"**{len(fotos_validas)} foto(s) encontrada(s):**")
+                        cols = st.columns(len(fotos_validas))
+                        
+                        for idx, caminho_foto in enumerate(fotos_validas):
+                            with cols[idx]:
+                                try:
+                                    res_bytes = supabase.storage.from_("fotos_atendimentos").download(caminho_foto)
+                                    st.image(res_bytes, caption=f"Anexo {idx+1}", use_column_width=True)
+                                except Exception as e:
+                                    st.error(f"Erro ao carregar a foto {idx+1}")
+                    else:
+                        st.info("Nenhuma foto válida anexada a este atendimento.")
+                    
+    else:
+        st.info("Nenhum atendimento registrado.")
+        
             
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
