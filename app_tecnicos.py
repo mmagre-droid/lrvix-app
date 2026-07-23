@@ -507,7 +507,13 @@ else:
             if 'data_execucao' in df.columns:
                 df['data_execucao'] = pd.to_datetime(df['data_execucao'], errors='coerce').dt.strftime('%d/%m/%Y')
             
+            # --- DEFINIÇÃO DAS COLUNAS OCULTAS POR PERFIL ---
             colunas_para_ocultar = ['id', 'created_at', 'cpf_tecnico']
+            
+            # Se não for Administrador (ou seja, perfil Técnico), oculta também foto, responsavel e valor_total
+            if st.session_state.perfil != "Administrador":
+                colunas_para_ocultar.extend(['foto', 'responsavel', 'valor_total'])
+            
             df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
             st.dataframe(df_exibicao, use_container_width=True)
             
@@ -559,7 +565,6 @@ else:
                         
         else:
             st.info("Nenhum atendimento registrado.")
-
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
