@@ -662,7 +662,7 @@ else:
             opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "💰 Tabela LPU"], horizontal=True)
             senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
 
-            if senha_admin == "123456":
+            if senha_admin == "@tl3t1c0":
                 if opcao_admin == "Perfis de Usuários":
                     st.write("### 👤 Gerenciamento de Perfis")
                     try:
