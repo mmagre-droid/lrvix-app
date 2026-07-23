@@ -6,92 +6,14 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import os
 
-# --- CONFIGURAÇÃO DA PÁGINA E VISUAL PROFISSIONAL ---
-st.set_page_config(
-    page_title="LRVIX - Sistema de Gestão Técnica",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-st.markdown("""
-    <style>
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
-        
-        /* Fundo geral da página em Azul Profissional */
-        .stApp {
-            background-color: #0f172a;
-            color: #f8fafc;
-        }
-        
-        /* Bloco central com fundo escuro elegante para contraste perfeito */
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-            max-width: 1000px;
-            background-color: #1e293b;
-            color: #f8fafc;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-            border: 1px solid #334155;
-        }
-        
-        /* Forçar textos padrão e labels dentro do container a ficarem claros */
-        .block-container p, .block-container span, .block-container label, .block-container div {
-            color: #f8fafc !important;
-        }
-        
-        /* Campos de texto e inputs perfeitamente legíveis */
-        input, textarea, select, [data-baseweb="input"] {
-            background-color: #ffffff !important;
-            color: #1e293b !important;
-            border-color: #cbd5e1 !important;
-        }
-        
-        /* Botões profissionais */
-        .stButton>button {
-            width: 100%;
-            border-radius: 8px;
-            font-weight: 600;
-            height: 45px;
-            background-color: #0284c7;
-            color: white;
-            border: none;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s ease;
-        }
-        .stButton>button:hover {
-            background-color: #0369a1;
-            color: white;
-            box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
-        }
-        
-        /* Abas estilizadas com contraste correto */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-        }
-        .stTabs [data-baseweb="tab"] {
-            background-color: #334155;
-            border-radius: 6px 6px 0px 0px;
-            color: #94a3b8;
-            font-weight: 600;
-            padding: 10px 20px;
-        }
-        .stTabs [aria-selected="true"] {
-            background-color: #0284c7 !important;
-            color: white !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 # --- CONFIGURAÇÃO ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 
 # Inicialização do Cliente Supabase
 supabase = create_client(url, key)
+
+st.title("🔐 Acesso LRVIX")
 
 # Inicialização do estado
 if "logado" not in st.session_state:
@@ -112,6 +34,7 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
         st.error(f"Erro ao cadastrar: {e}")
         return False
 
+# Função para incluir atendimento (agora recebendo a lista de fotos)
 def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico, metragem_cabo):
     try:
         supabase.table("ATENDIMENTO").insert({
@@ -122,7 +45,7 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
             "mercado": mercado,
             "tipo_servico": tipo_servico,
             "observacao": observacao,
-            "foto": foto_url,
+            "foto": foto_url, # Salva a lista de caminhos das fotos no banco
             "responsavel": nome_tecnico,
             "cpf_tecnico": cpf_tecnico,
             "metragem_cabo": metragem_cabo
@@ -132,6 +55,7 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
         st.error(f"Erro ao salvar: {e}")
         return False
 
+# Função para gerar o PDF da APR corretamente
 def gerar_pdf_apr(apr_id):
     try:
         from reportlab.lib.pagesizes import letter
@@ -147,6 +71,7 @@ def gerar_pdf_apr(apr_id):
         dados_apr = supabase.table("APR").select("*").eq("id", apr_id).execute()
         nome_arquivo = os.path.join(pasta_destino, f"apr_{apr_id}.pdf")
         
+        # Configuração do documento
         doc = SimpleDocTemplate(
             nome_arquivo, 
             pagesize=letter,
@@ -231,7 +156,7 @@ def gerar_pdf_apr(apr_id):
             tabela_geral = Table(dados_gerais, colWidths=[270, 270])
             tabela_geral.setStyle(TableStyle([
                 ('SPAN', (0, 0), (1, 0)),
-                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0284c7')),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')),
                 ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -261,8 +186,8 @@ def gerar_pdf_apr(apr_id):
             tabela_check = Table(dados_checklist, colWidths=[350, 190])
             tabela_check.setStyle(TableStyle([
                 ('SPAN', (0, 0), (1, 0)),
-                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0284c7')),
-                ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#e0f2fe')),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')),
+                ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#e5e7eb')),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
@@ -285,7 +210,7 @@ def gerar_pdf_apr(apr_id):
                 ('SPAN', (0, 0), (1, 0)),
                 ('SPAN', (0, 1), (1, 1)),
                 ('SPAN', (0, 2), (1, 2)),
-                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0284c7')),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#1f2937')),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
@@ -303,7 +228,7 @@ def gerar_pdf_apr(apr_id):
                 dados_foto_cabecalho = [[Paragraph("<b>REGISTRO FOTOGRÁFICO DA OCORRÊNCIA</b>", estilo_secao)]]
                 tabela_foto_cab = Table(dados_foto_cabecalho, colWidths=[540])
                 tabela_foto_cab.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#0284c7')),
+                    ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#1f2937')),
                     ('BOTTOMPADDING', (0, 0), (0, 0), 6),
                     ('TOPPADDING', (0, 0), (0, 0), 6),
                     ('LEFTPADDING', (0, 0), (0, 0), 8),
@@ -348,56 +273,49 @@ def gerar_pdf_apr(apr_id):
         return nome_arquivo
     
 if not st.session_state.logado:
-    col1, col2, col3 = st.columns([1, 1.2, 1])
-    with col2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align: center; color: #38bdf8;'>⚡ Acesso LRVIX</h2>", unsafe_allow_html=True)
-        tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
-        with tab1:
-            cpf_input = st.text_input("CPF")
-            senha_input = st.text_input("Senha", type="password", key="login_senha")
+    tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
+    with tab1:
+        cpf_input = st.text_input("CPF")
+        senha_input = st.text_input("Senha", type="password", key="login_senha")
+            
+        if st.button("Entrar"):
+            try:
+                user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
                 
-            if st.button("Entrar", use_container_width=True):
-                try:
-                    user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
-                    
-                    if user_query.data and str(user_query.data[0].get("senha")) == str(senha_input).strip():
-                        dados_user = user_query.data[0]
-                        if dados_user.get("ativo") is True:
-                            st.session_state.logado = True
-                            st.session_state.nome_tecnico = dados_user["nome"]
-                            st.session_state.perfil = dados_user["perfil"]
-                            st.session_state.cpf_tecnico = dados_user["cpf"]
-                            st.rerun()
-                        else:
-                            st.error("⚠️ Este usuário está inativo.")
+                if user_query.data and str(user_query.data[0].get("senha")) == str(senha_input).strip():
+                    dados_user = user_query.data[0]
+                    if dados_user.get("ativo") is True:
+                        st.session_state.logado = True
+                        st.session_state.nome_tecnico = dados_user["nome"]
+                        st.session_state.perfil = dados_user["perfil"]
+                        st.session_state.cpf_tecnico = dados_user["cpf"]
+                        st.rerun()
                     else:
-                        st.error("❌ CPF ou Senha incorretos.")
-                except Exception as e:
-                    st.error(f"Erro na conexão com o banco: {e}")
-        with tab2:
-            nome = st.text_input("Nome Completo")
-            cpf = st.text_input("CPF (somente números)")
-            email = st.text_input("E-mail")
-            telefone = st.text_input("Telefone")
-            senha = st.text_input("Senha", type="password", key="cad_senha")
-            confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
-            if st.button("Finalizar Cadastro", use_container_width=True):
-                if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
-                    st.success("Cadastro realizado!")
+                        st.error("⚠️ Este usuário está inativo.")
+                else:
+                    st.error("❌ CPF ou Senha incorretos.")
+            except Exception as e:
+                st.error(f"Erro na conexão com o banco: {e}")
+    with tab2:
+        nome = st.text_input("Nome Completo")
+        cpf = st.text_input("CPF (somente números)")
+        email = st.text_input("E-mail")
+        telefone = st.text_input("Telefone")
+        senha = st.text_input("Senha", type="password", key="cad_senha")
+        confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
+        if st.button("Finalizar Cadastro"):
+            if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
+                st.success("Cadastro realizado!")
 
 else:
-    # --- CABEÇALHO / BARRA SUPERIOR PROFISSIONAL ---
-    col_h1, col_h2 = st.columns([3, 1])
-    with col_h1:
-        st.markdown(f"### ⚡ Olá, **{st.session_state.nome_tecnico}**")
-        st.caption(f"Perfil de Acesso: **{st.session_state.perfil}**")
-    with col_h2:
-        if st.button("🚪 SAIR DO SISTEMA"):
+    # --- BARRA LATERAL ---
+    with st.sidebar:
+        st.write(f"👤 Usuário: {st.session_state.nome_tecnico}")
+        if st.button("SAIR DO SISTEMA"):
             st.session_state.logado = False
             st.rerun()
 
-    st.markdown("---")
+    st.success(f"Logado como: {st.session_state.nome_tecnico} ({st.session_state.perfil})")
     
     if st.session_state.perfil == "Administrador":
         aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "⚙️ ADMIN"])
@@ -406,7 +324,6 @@ else:
         aba4 = None
 
     with aba1:
-        st.subheader("Novo Lançamento Operacional")
         with st.form("form_atendimento", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
@@ -421,14 +338,16 @@ else:
             
             observacao = st.text_area("OBSERVAÇÃO")
             
+            # MODIFICAÇÃO APLICADA AQUI: accept_multiple_files=True para permitir múltiplas fotos no atendimento
             fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
             
-            if st.form_submit_button("REGISTRAR ATENDIMENTO", use_container_width=True):
+            if st.form_submit_button("REGISTRAR ATENDIMENTO"):
                 if not cliente or not endereco or not protocolo or not metragem_cabo:
                     st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
                 else:
                     caminhos_fotos_atendimento = []
                     if fotos_arquivos:
+                        # Faz o upload de cada foto selecionada (limitado a 5)
                         for foto in fotos_arquivos[:5]:
                             try:
                                 timestamp = int(time.time())
@@ -446,7 +365,7 @@ else:
                         mercado, 
                         tipo_servico, 
                         observacao, 
-                        caminhos_fotos_atendimento, 
+                        caminhos_fotos_atendimento, # Salva a lista de caminhos
                         st.session_state.nome_tecnico, 
                         st.session_state.cpf_tecnico, 
                         metragem_cabo
@@ -466,6 +385,7 @@ else:
         if atendimentos.data:
             df = pd.DataFrame(atendimentos.data)
             
+            # Formata a coluna de data para o padrão DD/MM/AAAA
             if 'data_execucao' in df.columns:
                 df['data_execucao'] = pd.to_datetime(df['data_execucao'], errors='coerce').dt.strftime('%d/%m/%Y')
             
@@ -473,6 +393,7 @@ else:
             df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
             st.dataframe(df_exibicao, use_container_width=True)
             
+            # --- VISUALIZADOR DE FOTOS (EXCLUSIVO PARA ADMINISTRADOR) ---
             if st.session_state.get("perfil") == "Administrador":
                 st.divider()
                 st.subheader("🖼️ Visualizador de Fotos")
@@ -567,8 +488,7 @@ else:
                                         label="📥 BAIXAR PDF",
                                         data=f,
                                         file_name=arquivo,
-                                        mime="application/pdf",
-                                        use_container_width=True
+                                        mime="application/pdf"
                                     )
                 else:
                     st.info("Nenhuma APR cadastrada para o seu usuário.")
@@ -606,7 +526,7 @@ else:
             
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
             
-            botao_enviar = st.form_submit_button("REGISTRAR APR", use_container_width=True)
+            botao_enviar = st.form_submit_button("REGISTRAR APR")
             
             if botao_enviar:
                 caminhos_fotos_salvas = []
@@ -666,7 +586,7 @@ else:
                         df_tecnicos = pd.DataFrame(dados_tecnicos.data)
                         edited_df = st.data_editor(df_tecnicos, use_container_width=True)
 
-                        if st.button("SALVAR PERFIS", use_container_width=True):
+                        if st.button("SALVAR PERFIS"):
                             for index, row in edited_df.iterrows():
                                 supabase.table("TECNICOS").update({
                                     "nome": row["nome"],
@@ -697,7 +617,7 @@ else:
                             num_rows="dynamic" 
                         )
 
-                        if st.button("SALVAR LPU", use_container_width=True):
+                        if st.button("SALVAR LPU"):
                             with st.spinner("Salvando..."):
                                 for index, row in df_editada_lpu.iterrows():
                                     if "id" in row and pd.notnull(row["id"]):
