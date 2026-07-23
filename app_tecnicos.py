@@ -16,17 +16,29 @@ st.set_page_config(
 # --- ESTILIZAÇÃO CSS (OCULTA CABEÇALHO, MENU, ÍCONES FLUTUANTES E GITHUB) ---
 st.markdown("""
     <style>
-        /* Oculta completamente o cabeçalho superior padrão do Streamlit */
-        header {visibility: hidden !important;}
-        #MainMenu {visibility: hidden !important;}
-        footer {visibility: hidden !important;}
+        /* Oculta completamente o cabeçalho e rodapé padrão do Streamlit */
+        header {visibility: hidden !important; display: none !important;}
+        #MainMenu {visibility: hidden !important; display: none !important;}
+        footer {visibility: hidden !important; display: none !important;}
         
-        /* Oculta os ícones flutuantes do canto inferior direito (Status / Widget / Menu) */
+        /* Oculta seletores antigos e novos de widgets flutuantes e ferramentas */
         [data-testid="stStatusWidget"] {
             visibility: hidden !important;
             display: none !important;
         }
         div[data-testid="stToolbar"] {
+            visibility: hidden !important;
+            display: none !important;
+        }
+        div[class*="stToolbar"] {
+            visibility: hidden !important;
+            display: none !important;
+        }
+        div[class*="viewerBadge"] {
+            visibility: hidden !important;
+            display: none !important;
+        }
+        button[kind="header"] {
             visibility: hidden !important;
             display: none !important;
         }
