@@ -6,7 +6,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import os
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
+# --- CONFIGURAÇÃO DA PÁGINA E VISUAL PROFISSIONAL ---
 st.set_page_config(
     page_title="LRVIX - Sistema de Gestão Técnica",
     page_icon="⚡",
@@ -14,83 +14,74 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- DESIGN MODERNO INSPIRADO NA REFERÊNCIA (Tons de Azul Claro e Branco) ---
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
         
-        /* Fundo geral da página com degradê suave e limpo */
+        /* Fundo geral da página em Azul Profissional */
         .stApp {
-            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
-            color: #102a43;
+            background-color: #0f172a;
+            color: #f8fafc;
         }
         
-        /* Centralização e estilo do bloco principal (Card estilo SaaS) */
+        /* Bloco central com fundo escuro elegante para contraste perfeito */
         .block-container {
-            padding-top: 3rem;
-            padding-bottom: 3rem;
-            max-width: 480px !important;
-            background-color: #ffffff;
-            color: #102a43;
-            border-radius: 16px;
-            box-shadow: 0 20px 25px -5px rgba(16, 42, 67, 0.1), 0 10px 10px -5px rgba(16, 42, 67, 0.04);
-            border: 1px solid #bcccdc;
-            margin-top: 5vh;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            max-width: 1000px;
+            background-color: #1e293b;
+            color: #f8fafc;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            border: 1px solid #334155;
         }
         
-        /* Títulos e textos corporativos escuros */
-        h1, h2, h3, p, label, span {
-            color: #102a43 !important;
+        /* Forçar textos padrão e labels dentro do container a ficarem claros */
+        .block-container p, .block-container span, .block-container label, .block-container div {
+            color: #f8fafc !important;
         }
         
-        /* Inputs limpos com borda sutil */
+        /* Campos de texto e inputs perfeitamente legíveis */
         input, textarea, select, [data-baseweb="input"] {
-            background-color: #f8fafc !important;
-            color: #102a43 !important;
-            border-color: #9fb3c8 !important;
-            border-radius: 8px !important;
+            background-color: #ffffff !important;
+            color: #1e293b !important;
+            border-color: #cbd5e1 !important;
         }
         
-        input:focus {
-            border-color: #0077cc !important;
-            box-shadow: 0 0 0 2px rgba(0, 119, 204, 0.2);
-        }
-        
-        /* Botões no estilo moderno vibrante (Azul padrão tecnologia) */
+        /* Botões profissionais */
         .stButton>button {
             width: 100%;
             border-radius: 8px;
             font-weight: 600;
-            height: 48px;
-            background-color: #0077cc;
+            height: 45px;
+            background-color: #0284c7;
             color: white;
             border: none;
-            box-shadow: 0 4px 6px -1px rgba(0, 119, 204, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             transition: all 0.2s ease;
         }
         .stButton>button:hover {
-            background-color: #005fa3;
+            background-color: #0369a1;
             color: white;
-            box-shadow: 0 6px 8px -1px rgba(0, 119, 204, 0.3);
+            box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
         }
         
-        /* Abas limpas */
+        /* Abas estilizadas com contraste correto */
         .stTabs [data-baseweb="tab-list"] {
-            gap: 12px;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 8px;
+            gap: 8px;
         }
         .stTabs [data-baseweb="tab"] {
-            background-color: transparent;
-            color: #627d98;
+            background-color: #334155;
+            border-radius: 6px 6px 0px 0px;
+            color: #94a3b8;
             font-weight: 600;
-            border: none;
+            padding: 10px 20px;
         }
         .stTabs [aria-selected="true"] {
-            color: #0077cc !important;
-            border-bottom: 3px solid #0077cc;
+            background-color: #0284c7 !important;
+            color: white !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -99,13 +90,16 @@ st.markdown("""
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 
+# Inicialização do Cliente Supabase
 supabase = create_client(url, key)
 
+# Inicialização do estado
 if "logado" not in st.session_state:
     st.session_state.logado = False
 if "modo_admin" not in st.session_state:
     st.session_state.modo_admin = False
 
+# --- FUNÇÕES ---
 def cadastrar_tecnico(nome, cpf, email, telefone, senha):
     existe = supabase.table("TECNICOS").select("cpf").eq("cpf", cpf).execute()
     if existe.data:
@@ -168,7 +162,7 @@ def gerar_pdf_apr(apr_id):
             parent=styles['Heading1'],
             fontName='Helvetica-Bold',
             fontSize=14,
-            textColor=colors.HexColor('#102a43'),
+            textColor=colors.HexColor('#1f2937'),
             alignment=1,
             spaceAfter=10
         )
@@ -188,7 +182,7 @@ def gerar_pdf_apr(apr_id):
             parent=styles['Normal'],
             fontName='Helvetica',
             fontSize=9,
-            textColor=colors.HexColor('#334e68')
+            textColor=colors.HexColor('#374151')
         )
         
         estilo_texto_bold = ParagraphStyle(
@@ -237,7 +231,7 @@ def gerar_pdf_apr(apr_id):
             tabela_geral = Table(dados_gerais, colWidths=[270, 270])
             tabela_geral.setStyle(TableStyle([
                 ('SPAN', (0, 0), (1, 0)),
-                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0077cc')),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0284c7')),
                 ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -245,7 +239,7 @@ def gerar_pdf_apr(apr_id):
                 ('TOPPADDING', (0, 0), (-1, -1), 6),
                 ('LEFTPADDING', (0, 0), (-1, -1), 8),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#bcccdc')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
             ]))
             story.append(tabela_geral)
             story.append(Spacer(1, 15))
@@ -267,15 +261,15 @@ def gerar_pdf_apr(apr_id):
             tabela_check = Table(dados_checklist, colWidths=[350, 190])
             tabela_check.setStyle(TableStyle([
                 ('SPAN', (0, 0), (1, 0)),
-                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0077cc')),
-                ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#f0f4f8')),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0284c7')),
+                ('BACKGROUND', (0, 1), (1, 1), colors.HexColor('#e0f2fe')),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
                 ('TOPPADDING', (0, 0), (-1, -1), 5),
                 ('LEFTPADDING', (0, 0), (-1, -1), 8),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#bcccdc')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
             ]))
             story.append(tabela_check)
             story.append(Spacer(1, 15))
@@ -291,14 +285,14 @@ def gerar_pdf_apr(apr_id):
                 ('SPAN', (0, 0), (1, 0)),
                 ('SPAN', (0, 1), (1, 1)),
                 ('SPAN', (0, 2), (1, 2)),
-                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0077cc')),
+                ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0284c7')),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
                 ('TOPPADDING', (0, 0), (-1, -1), 6),
                 ('LEFTPADDING', (0, 0), (-1, -1), 8),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#bcccdc')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
             ]))
             story.append(tabela_paralisa)
             
@@ -309,11 +303,11 @@ def gerar_pdf_apr(apr_id):
                 dados_foto_cabecalho = [[Paragraph("<b>REGISTRO FOTOGRÁFICO DA OCORRÊNCIA</b>", estilo_secao)]]
                 tabela_foto_cab = Table(dados_foto_cabecalho, colWidths=[540])
                 tabela_foto_cab.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#0077cc')),
+                    ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#0284c7')),
                     ('BOTTOMPADDING', (0, 0), (0, 0), 6),
                     ('TOPPADDING', (0, 0), (0, 0), 6),
                     ('LEFTPADDING', (0, 0), (0, 0), 8),
-                    ('GRID', (0, 0), (0, 0), 0.5, colors.HexColor('#bcccdc')),
+                    ('GRID', (0, 0), (0, 0), 0.5, colors.HexColor('#d1d5db')),
                 ]))
                 story.append(tabela_foto_cab)
                 story.append(Spacer(1, 10))
@@ -354,42 +348,43 @@ def gerar_pdf_apr(apr_id):
         return nome_arquivo
     
 if not st.session_state.logado:
-    st.markdown("<h2 style='text-align: center; color: #102a43;'>⚡ Acesso LRVIX</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #627d98; margin-bottom: 2rem;'>Faça login para gerenciar suas operações técnicas</p>", unsafe_allow_html=True)
-    
-    tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
-    with tab1:
-        cpf_input = st.text_input("CPF")
-        senha_input = st.text_input("Senha", type="password", key="login_senha")
-            
-        if st.button("Entrar", use_container_width=True):
-            try:
-                user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #38bdf8;'>⚡ Acesso LRVIX</h2>", unsafe_allow_html=True)
+        tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
+        with tab1:
+            cpf_input = st.text_input("CPF")
+            senha_input = st.text_input("Senha", type="password", key="login_senha")
                 
-                if user_query.data and str(user_query.data[0].get("senha")) == str(senha_input).strip():
-                    dados_user = user_query.data[0]
-                    if dados_user.get("ativo") is True:
-                        st.session_state.logado = True
-                        st.session_state.nome_tecnico = dados_user["nome"]
-                        st.session_state.perfil = dados_user["perfil"]
-                        st.session_state.cpf_tecnico = dados_user["cpf"]
-                        st.rerun()
+            if st.button("Entrar", use_container_width=True):
+                try:
+                    user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
+                    
+                    if user_query.data and str(user_query.data[0].get("senha")) == str(senha_input).strip():
+                        dados_user = user_query.data[0]
+                        if dados_user.get("ativo") is True:
+                            st.session_state.logado = True
+                            st.session_state.nome_tecnico = dados_user["nome"]
+                            st.session_state.perfil = dados_user["perfil"]
+                            st.session_state.cpf_tecnico = dados_user["cpf"]
+                            st.rerun()
+                        else:
+                            st.error("⚠️ Este usuário está inativo.")
                     else:
-                        st.error("⚠️ Este usuário está inativo.")
-                else:
-                    st.error("❌ CPF ou Senha incorretos.")
-            except Exception as e:
-                st.error(f"Erro na conexão com o banco: {e}")
-    with tab2:
-        nome = st.text_input("Nome Completo")
-        cpf = st.text_input("CPF (somente números)")
-        email = st.text_input("E-mail")
-        telefone = st.text_input("Telefone")
-        senha = st.text_input("Senha", type="password", key="cad_senha")
-        confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
-        if st.button("Finalizar Cadastro", use_container_width=True):
-            if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
-                st.success("Cadastro realizado com sucesso!")
+                        st.error("❌ CPF ou Senha incorretos.")
+                except Exception as e:
+                    st.error(f"Erro na conexão com o banco: {e}")
+        with tab2:
+            nome = st.text_input("Nome Completo")
+            cpf = st.text_input("CPF (somente números)")
+            email = st.text_input("E-mail")
+            telefone = st.text_input("Telefone")
+            senha = st.text_input("Senha", type="password", key="cad_senha")
+            confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
+            if st.button("Finalizar Cadastro", use_container_width=True):
+                if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
+                    st.success("Cadastro realizado!")
 
 else:
     # --- CABEÇALHO / BARRA SUPERIOR PROFISSIONAL ---
@@ -398,7 +393,7 @@ else:
         st.markdown(f"### ⚡ Olá, **{st.session_state.nome_tecnico}**")
         st.caption(f"Perfil de Acesso: **{st.session_state.perfil}**")
     with col_h2:
-        if st.button("🚪 SAIR"):
+        if st.button("🚪 SAIR DO SISTEMA"):
             st.session_state.logado = False
             st.rerun()
 
