@@ -72,7 +72,8 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
 
 def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao):
     """
-    Calcula o valor do atendimento baseando-se nas faixas de metragem e tipo de serviço da LPU.
+    Calcula o valor do atendimento baseando-se nas faixas de metragem e tipo de serviço da LPU,
+    incluindo o cálculo proporcional de adicionais para metragens acima do teto cadastrado.
     """
     try:
         res_lpu = supabase.table("LPU").select("*").execute()
@@ -90,7 +91,7 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao):
         except ValueError:
             metragem = 0.0
             
-        # Procura se existe faixa de metragem compatível na LPU
+        # 1. Procura se existe faixa de metragem compatível exata na LPU
         for item in res_lpu.data:
             min_m = item.get("min_metragem")
             max_m = item.get("max_metragem")
@@ -98,8 +99,35 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao):
             if min_m is not None and max_m is not None:
                 if float(min_m) <= metragem <= float(max_m):
                     return float(item.get("valor", 0.0))
+        
+        # 2. Se a metragem for maior que a maior faixa cadastrada, calcula o adicional por bloco (ex: a cada 100m)
+        faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem") is not None]
+        if faixas_com_metragem and metragem > 0:
+            # Ordena pela maior metragem máxima para encontrar o teto
+            maior_faixa = max(faixas_com_metragem, key=lambda x: float(x.get("max_metragem", 0)))
+            teto_max = float(maior_faixa.get("max_metragem", 0))
+            
+            if metragem > teto_max:
+                valor_base = float(maior_faixa.get("valor", 0.0))
+                excedente = metragem - teto_max
+                
+                # Busca na LPU se existe um item específico de adicional por bloco (ex: ADCIONAL_100 ou similar)
+                valor_adicional_bloco = 0.0
+                for item in res_lpu.data:
+                    serv_nome = str(item.get("servico", "")).strip().upper()
+                    if "ADICIONAL" in serv_nome or "100" in serv_nome:
+                        valor_adicional_bloco = float(item.get("valor", 0.0))
+                        break
+                
+                # Se não achar um item específico de adicional, estima proporcionalmente com base na última faixa
+                if valor_adicional_bloco == 0.0 and teto_max > 0:
+                    # Assume proporcional ao bloco de 100m baseado na faixa limite
+                    valor_adicional_bloco = valor_base * (100.0 / teto_max)
+                
+                blocos_extras = (excedente // 100.0) + (1 if excedente % 100.0 > 0 else 0)
+                return valor_base + (blocos_extras * valor_adicional_bloco)
                     
-        # Se não caiu em faixa de metragem, busca pelo nome do serviço fixo
+        # 3. Se não caiu em faixa de metragem, busca pelo nome do serviço fixo
         for item in res_lpu.data:
             nome_servico = str(item.get("servico", "")).strip().lower()
             if nome_servico == servico_lower:
