@@ -647,14 +647,28 @@ else:
                         dados_lpu = supabase.table("LPU").select("*").execute()
                         
                         if not dados_lpu.data:
-                            df_lpu = pd.DataFrame(columns=["id", "created_at", "descricao", "valor", "servico"])
+                            df_lpu = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao"])
                         else:
                             df_lpu = pd.DataFrame(dados_lpu.data)
+                        
+                        # Mantém apenas as colunas relevantes visíveis e na ordem correta
+                        colunas_desejadas = ["servico", "valor", "descricao"]
+                        
+                        # Configuração para ocultar o ID e o created_at da tela
+                        configuracao_colunas = {
+                            "id": None,
+                            "created_at": None,
+                            "servico": st.column_config.TextColumn("Serviço", required=True),
+                            "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
+                            "descricao": st.column_config.TextColumn("Descrição")
+                        }
                         
                         df_editada_lpu = st.data_editor(
                             df_lpu, 
                             use_container_width=True, 
-                            num_rows="dynamic" 
+                            num_rows="dynamic",
+                            column_config=configuracao_colunas,
+                            disabled=["id", "created_at"] # Impede alteração dos campos de sistema
                         )
 
                         if st.button("SALVAR LPU", use_container_width=True):
@@ -663,21 +677,18 @@ else:
                                     servico_val = row.get("servico")
                                     valor_val = row.get("valor")
                                     
-                                    # Ignora linhas sem nome de serviço
                                     if not servico_val or pd.isna(servico_val):
                                         continue
                                         
                                     id_val = row.get("id")
                                     descricao_val = row.get("descricao")
                                     
-                                    # Prepara o dicionário de dados garantindo tratamento de nulos
                                     dados_para_salvar = {
                                         "servico": str(servico_val),
                                         "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
                                         "descricao": str(descricao_val) if pd.notnull(descricao_val) and descricao_val is not None else None
                                     }
                                     
-                                    # Se tem ID válido, atualiza; senão, insere novo registro
                                     if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
                                         supabase.table("LPU").update(dados_para_salvar).eq("id", id_val).execute()
                                     else:
