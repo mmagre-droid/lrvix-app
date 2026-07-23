@@ -409,89 +409,7 @@ if not st.session_state.logado:
                         st.error("❌ CPF ou Senha incorretos.")
                 except Exception as e:
                     st.error(f"Erro na conexão com o banco: {e}")
-        with tab2:
-            nome = st.text_input("Nome Completo")
-            cpf = st.text_input("CPF (somente números)")
-            email = st.text_input("E-mail")
-            telefone = st.text_input("Telefone")
-            senha = st.text_input("Senha", type="password", key="cad_senha")
-            confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
-            st.write("")
-            if st.button("Finalizar Cadastro", use_container_width=True):
-                if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
-                    st.success("Cadastro realizado com sucesso!")
-
-else:
-    # --- CABEÇALHO / BARRA SUPERIOR PROFISSIONAL ---
-    col_h1, col_h2 = st.columns([3, 1])
-    with col_h1:
-        st.markdown(f"### ⚡ Olá, **{st.session_state.nome_tecnico}**")
-        st.caption(f"Perfil de Acesso: **{st.session_state.perfil}**")
-    with col_h2:
-        if st.button("🚪 Sair do Sistema", use_container_width=True):
-            st.session_state.logado = False
-            st.rerun()
-
-    st.markdown("---")
-    
-    if st.session_state.perfil == "Administrador":
-        aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "⚙️ ADMIN"])
-    else:
-        aba1, aba2, aba3 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR"])
-        aba4 = None
-
-    with aba1:
-        st.subheader("Novo Lançamento Operacional")
-        with st.form("form_atendimento", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            with c1:
-                data_execucao = st.date_input("DATA DA EXECUÇÃO", format="DD/MM/YYYY")
-                cliente = st.text_input("NOME DO CLIENTE")
-                endereco = st.text_input("ENDEREÇO")
-                metragem_cabo = st.text_input("CABO UTILIZADO")
-            with c2:
-                protocolo = st.text_input("PROTOCOLO")
-                mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
-                tipo_servico = st.selectbox("TIPO DE SERVIÇO", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
-            
-            observacao = st.text_area("OBSERVAÇÃO")
-            fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
-            
-            st.write("")
-            if st.form_submit_button("REGISTRAR ATENDIMENTO", use_container_width=True):
-                if not cliente or not endereco or not protocolo or not metragem_cabo:
-                    st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
-                else:
-                    valor_calculado = calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao)
-                    
-                    caminhos_fotos_atendimento = []
-                    if fotos_arquivos:
-                        for foto in fotos_arquivos[:5]:
-                            try:
-                                timestamp = int(time.time())
-                                caminho = f"fotos/{timestamp}_{foto.name}"
-                                supabase.storage.from_("fotos_atendimentos").upload(caminho, foto.getvalue())
-                                caminhos_fotos_atendimento.append(caminho)
-                            except Exception as e:
-                                st.error(f"Erro ao subir foto {foto.name}: {e}")
-                    
-                    if registrar_atendimento(
-                        data_execucao, 
-                        cliente, 
-                        endereco, 
-                        protocolo, 
-                        mercado, 
-                        tipo_servico, 
-                        observacao, 
-                        caminhos_fotos_atendimento, 
-                        st.session_state.nome_tecnico, 
-                        st.session_state.cpf_tecnico, 
-                        metragem_cabo,
-                        valor_calculado
-                    ):
-                        st.success("Atendimento registrado com sucesso!")
-            
-    with aba2: 
+        with aba2: 
         st.subheader("Lista de Atendimentos")
         
         query = supabase.table("ATENDIMENTO").select("*")
@@ -510,49 +428,67 @@ else:
             # --- DEFINIÇÃO DAS COLUNAS OCULTAS POR PERFIL ---
             colunas_para_ocultar = ['id', 'created_at', 'cpf_tecnico']
             
-            # Se não for Administrador (perfil Técnico), oculta foto, responsavel e valor_total
             if st.session_state.perfil != "Administrador":
                 colunas_para_ocultar.extend(['foto', 'responsavel', 'valor_total'])
             
             df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
+            
+            # --- FORÇAR ALINHAMENTO À ESQUERDA NA TABELA ---
+            st.markdown("""
+                <style>
+                [data-testid="stDataFrame"] div[data-testid="stTable"] td, 
+                [data-testid="stDataFrame"] div[data-testid="stTable"] th {
+                    text-align: left !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            
             st.dataframe(df_exibicao, use_container_width=True)
             
+            # --- SEÇÃO DEDICADA PARA COPIAR AS OBSERVAÇÕES ---
+            st.write("")
+            with st.expander("📋 Copiar Observações dos Atendimentos"):
+                st.info("Utilize os campos abaixo para selecionar e copiar as observações facilmente com Ctrl + C:")
+                for idx, row in df.iterrows():
+                    obs = row.get('observacao', '')
+                    prot = row.get('protocolo', 'N/A')
+                    cliente = row.get('cliente', 'N/A')
+                    data_atend = row.get('data_execucao', 'N/A')
+                    
+                    if obs and str(obs).strip() != "" and str(obs).lower() != "nan":
+                        st.text_input(
+                            label=f"Data: {data_atend} | Protocolo: {prot} | Cliente: {cliente}", 
+                            value=str(obs), 
+                            key=f"input_obs_{idx}"
+                        )
+
             # --- TABELA DE PROJEÇÃO E INDICADORES ---
             st.write("")
             st.markdown("### 📊 Indicadores e Projeção")
             
             try:
-                # Tratamento de dados para os cálculos
                 df_calc = pd.DataFrame(atendimentos.data)
                 
-                # Dias trabalhados (datas distintas)
                 dias_trabalhados = df_calc['data_execucao'].nunique() if 'data_execucao' in df_calc.columns else 0
                 
-                # Padronizar coluna tipo_servico para maiúsculo para contagem correta
                 df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
                 
-                # Contagem de serviços
                 qtd_interno = len(df_calc[df_calc['tipo_servico_upper'] == 'INTERNO'])
                 qtd_externo = len(df_calc[df_calc['tipo_servico_upper'] == 'EXTERNO'])
                 qtd_improdutivo = len(df_calc[df_calc['tipo_servico_upper'] == 'IMPRODUTIVO'])
                 
-                # Total de serviços produtivos (Interno + Externo)
                 total_servicos_produtivos = qtd_interno + qtd_externo
                 
-                # Média de serviço (desconsiderando improdutivos: total produtivo / dias trabalhados)
                 media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
                 
-                # Ticket médio e Soma Geral (desconsiderando improdutivos para o ticket médio)
                 df_calc['valor_total'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
                 
-                # Filtra apenas os produtivos para o ticket médio
                 df_produtivos = df_calc[df_calc['tipo_servico_upper'].isin(['INTERNO', 'EXTERNO'])]
                 soma_valor_produtivos = df_produtivos['valor_total'].sum()
                 
                 ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
                 total_geral = df_calc['valor_total'].sum()
                 
-                # Montagem visual da tabela em HTML semelhante ao layout solicitado
                 tabela_html = f"""
                 <div style="overflow-x:auto;">
                     <table style="width:100%; border-collapse: collapse; text-align: center; font-family: sans-serif; font-size: 14px;">
