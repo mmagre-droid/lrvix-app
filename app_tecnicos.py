@@ -510,12 +510,80 @@ else:
             # --- DEFINIÇÃO DAS COLUNAS OCULTAS POR PERFIL ---
             colunas_para_ocultar = ['id', 'created_at', 'cpf_tecnico']
             
-            # Se não for Administrador (ou seja, perfil Técnico), oculta também foto, responsavel e valor_total
+            # Se não for Administrador (perfil Técnico), oculta foto, responsavel e valor_total
             if st.session_state.perfil != "Administrador":
                 colunas_para_ocultar.extend(['foto', 'responsavel', 'valor_total'])
             
             df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
             st.dataframe(df_exibicao, use_container_width=True)
+            
+            # --- TABELA DE PROJEÇÃO E INDICADORES ---
+            st.write("")
+            st.markdown("### 📊 Indicadores e Projeção")
+            
+            try:
+                # Tratamento de dados para os cálculos
+                df_calc = pd.DataFrame(atendimentos.data)
+                
+                # Dias trabalhados (datas distintas)
+                dias_trabalhados = df_calc['data_execucao'].nunique() if 'data_execucao' in df_calc.columns else 0
+                
+                # Padronizar coluna tipo_servico para maiúsculo para contagem correta
+                df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
+                
+                # Contagem de serviços
+                qtd_interno = len(df_calc[df_calc['tipo_servico_upper'] == 'INTERNO'])
+                qtd_externo = len(df_calc[df_calc['tipo_servico_upper'] == 'EXTERNO'])
+                qtd_improdutivo = len(df_calc[df_calc['tipo_servico_upper'] == 'IMPRODUTIVO'])
+                
+                # Total de serviços produtivos (Interno + Externo)
+                total_servicos_produtivos = qtd_interno + qtd_externo
+                
+                # Média de serviço (desconsiderando improdutivos: total produtivo / dias trabalhados)
+                media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
+                
+                # Ticket médio e Soma Geral (desconsiderando improdutivos para o ticket médio)
+                df_calc['valor_total'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
+                
+                # Filtra apenas os produtivos para o ticket médio
+                df_produtivos = df_calc[df_calc['tipo_servico_upper'].isin(['INTERNO', 'EXTERNO'])]
+                soma_valor_produtivos = df_produtivos['valor_total'].sum()
+                
+                ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
+                total_geral = df_calc['valor_total'].sum()
+                
+                # Montagem visual da tabela em HTML semelhante ao layout solicitado
+                tabela_html = f"""
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse: collapse; text-align: center; font-family: sans-serif; font-size: 14px;">
+                        <thead>
+                            <tr style="background-color: #4a90e2; color: white;">
+                                <th style="border: 1px solid #ddd; padding: 10px;" colspan="5">PROJEÇÃO E INDICADORES</th>
+                            </tr>
+                            <tr style="background-color: #5ba4e6; color: white;">
+                                <th style="border: 1px solid #ddd; padding: 8px;">DIAS TRABALHADOS</th>
+                                <th style="border: 1px solid #ddd; padding: 8px;">SERV. INTERNO / EXTERNO</th>
+                                <th style="border: 1px solid #ddd; padding: 8px;">MED. SERVIÇO</th>
+                                <th style="border: 1px solid #ddd; padding: 8px;">TICKET MÉDIO</th>
+                                <th style="border: 1px solid #ddd; padding: 8px;">T. GERAL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background-color: #f9f9f9; color: #333; font-weight: bold;">
+                                <td style="border: 1px solid #ddd; padding: 10px;">{dias_trabalhados}</td>
+                                <td style="border: 1px solid #ddd; padding: 10px;">{qtd_interno} Int / {qtd_externo} Ext (Tot: {total_servicos_produtivos})</td>
+                                <td style="border: 1px solid #ddd; padding: 10px;">{media_servico:.2f}</td>
+                                <td style="border: 1px solid #ddd; padding: 10px;">R$ {ticket_medio:,.2f}</td>
+                                <td style="border: 1px solid #ddd; padding: 10px;">R$ {total_geral:,.2f}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                """
+                st.markdown(tabela_html, unsafe_allow_html=True)
+                
+            except Exception as calc_err:
+                st.error(f"Erro ao calcular os indicadores: {calc_err}")
             
             if st.session_state.get("perfil") == "Administrador":
                 st.divider()
@@ -565,6 +633,7 @@ else:
                         
         else:
             st.info("Nenhum atendimento registrado.")
+            
     with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
