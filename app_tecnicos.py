@@ -361,16 +361,22 @@ if not st.session_state.logado:
                 try:
                     user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
                     
-                    if user_query.data and str(user_query.data[0].get("senha")) == str(senha_input).strip():
+                    if user_query.data:
                         dados_user = user_query.data[0]
-                        if dados_user.get("ativo") is True:
-                            st.session_state.logado = True
-                            st.session_state.nome_tecnico = dados_user["nome"]
-                            st.session_state.perfil = dados_user["perfil"]
-                            st.session_state.cpf_tecnico = dados_user["cpf"]
-                            st.rerun()
+                        senha_banco = str(dados_user.get("senha", "")).strip()
+                        senha_digitada = str(senha_input).strip()
+                        
+                        if senha_banco == senha_digitada:
+                            if dados_user.get("ativo") is True:
+                                st.session_state.logado = True
+                                st.session_state.nome_tecnico = dados_user["nome"]
+                                st.session_state.perfil = dados_user["perfil"]
+                                st.session_state.cpf_tecnico = dados_user["cpf"]
+                                st.rerun()
+                            else:
+                                st.error("⚠️ Este usuário está inativo.")
                         else:
-                            st.error("⚠️ Este usuário está inativo.")
+                            st.error("❌ CPF ou Senha incorretos.")
                     else:
                         st.error("❌ CPF ou Senha incorretos.")
                 except Exception as e:
@@ -662,7 +668,7 @@ else:
             opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "💰 Tabela LPU"], horizontal=True)
             senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
 
-            if senha_admin == "@tl3t1c0":
+            if senha_admin == "123456":
                 if opcao_admin == "Perfis de Usuários":
                     st.write("### 👤 Gerenciamento de Perfis")
                     try:
