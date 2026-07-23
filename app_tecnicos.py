@@ -409,7 +409,7 @@ if not st.session_state.logado:
                         st.error("❌ CPF ou Senha incorretos.")
                 except Exception as e:
                     st.error(f"Erro na conexão com o banco: {e}")
-        with aba2:
+        with aba2: 
         st.subheader("Lista de Atendimentos")
         
         query = supabase.table("ATENDIMENTO").select("*")
@@ -428,6 +428,7 @@ if not st.session_state.logado:
             # --- DEFINIÇÃO DAS COLUNAS OCULTAS POR PERFIL ---
             colunas_para_ocultar = ['id', 'created_at', 'cpf_tecnico']
             
+            # Se não for Administrador (perfil Técnico), oculta foto, responsavel e valor_total
             if st.session_state.perfil != "Administrador":
                 colunas_para_ocultar.extend(['foto', 'responsavel', 'valor_total'])
             
@@ -445,7 +446,7 @@ if not st.session_state.logado:
             
             st.dataframe(df_exibicao, use_container_width=True)
             
-            # --- SEÇÃO DEDICADA PARA COPIAR AS OBSERVAÇÕES ---
+            # --- SEÇÃO DEDICADA PARA COPIAR AS OBSERVAÇÕES (OPÇÃO 2) ---
             st.write("")
             with st.expander("📋 Copiar Observações dos Atendimentos"):
                 st.info("Utilize os campos abaixo para selecionar e copiar as observações facilmente com Ctrl + C:")
@@ -461,34 +462,43 @@ if not st.session_state.logado:
                             value=str(obs), 
                             key=f"input_obs_{idx}"
                         )
-
+            
             # --- TABELA DE PROJEÇÃO E INDICADORES ---
             st.write("")
             st.markdown("### 📊 Indicadores e Projeção")
             
             try:
+                # Tratamento de dados para os cálculos
                 df_calc = pd.DataFrame(atendimentos.data)
                 
+                # Dias trabalhados (datas distintas)
                 dias_trabalhados = df_calc['data_execucao'].nunique() if 'data_execucao' in df_calc.columns else 0
                 
+                # Padronizar coluna tipo_servico para maiúsculo para contagem correta
                 df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
                 
+                # Contagem de serviços
                 qtd_interno = len(df_calc[df_calc['tipo_servico_upper'] == 'INTERNO'])
                 qtd_externo = len(df_calc[df_calc['tipo_servico_upper'] == 'EXTERNO'])
                 qtd_improdutivo = len(df_calc[df_calc['tipo_servico_upper'] == 'IMPRODUTIVO'])
                 
+                # Total de serviços produtivos (Interno + Externo)
                 total_servicos_produtivos = qtd_interno + qtd_externo
                 
+                # Média de serviço (desconsiderando improdutivos: total produtivo / dias trabalhados)
                 media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
                 
+                # Ticket médio e Soma Geral (desconsiderando improdutivos para o ticket médio)
                 df_calc['valor_total'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
                 
+                # Filtra apenas os produtivos para o ticket médio
                 df_produtivos = df_calc[df_calc['tipo_servico_upper'].isin(['INTERNO', 'EXTERNO'])]
                 soma_valor_produtivos = df_produtivos['valor_total'].sum()
                 
                 ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
                 total_geral = df_calc['valor_total'].sum()
                 
+                # Montagem visual da tabela em HTML semelhante ao layout solicitado
                 tabela_html = f"""
                 <div style="overflow-x:auto;">
                     <table style="width:100%; border-collapse: collapse; text-align: center; font-family: sans-serif; font-size: 14px;">
