@@ -489,7 +489,7 @@ else:
                         metragem_cabo,
                         valor_calculado
                     ):
-                        st.success(f"Atendimento registrado com sucesso! (Valor LPU: R$ {valor_calculado:.2f})")
+                        st.success("Atendimento registrado com sucesso!")
             
     with aba2: 
         st.subheader("Lista de Atendimentos")
