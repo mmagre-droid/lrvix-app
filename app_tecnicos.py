@@ -409,7 +409,7 @@ if not st.session_state.logado:
                         st.error("❌ CPF ou Senha incorretos.")
                 except Exception as e:
                     st.error(f"Erro na conexão com o banco: {e}")
-        with aba2: 
+        with aba2:
         st.subheader("Lista de Atendimentos")
         
         query = supabase.table("ATENDIMENTO").select("*")
