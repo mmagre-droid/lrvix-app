@@ -70,7 +70,47 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
         st.error(f"Erro ao cadastrar: {e}")
         return False
 
-def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico, metragem_cabo):
+def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao):
+    """
+    Calcula o valor do atendimento baseando-se nas faixas de metragem e tipo de serviço da LPU.
+    """
+    try:
+        res_lpu = supabase.table("LPU").select("*").execute()
+        if not res_lpu.data:
+            return 0.0
+            
+        obs = str(observacao).strip().upper()
+        if "não autorizado" in obs or "nao autorizado" in obs:
+            return 0.0
+            
+        servico_lower = str(tipo_servico).strip().lower()
+        
+        try:
+            metragem = float(metragem_cabo) if metragem_cabo else 0.0
+        except ValueError:
+            metragem = 0.0
+            
+        # Procura se existe faixa de metragem compatível na LPU
+        for item in res_lpu.data:
+            min_m = item.get("min_metragem")
+            max_m = item.get("max_metragem")
+            
+            if min_m is not None and max_m is not None:
+                if float(min_m) <= metragem <= float(max_m):
+                    return float(item.get("valor", 0.0))
+                    
+        # Se não caiu em faixa de metragem, busca pelo nome do serviço fixo
+        for item in res_lpu.data:
+            nome_servico = str(item.get("servico", "")).strip().lower()
+            if nome_servico == servico_lower:
+                return float(item.get("valor", 0.0))
+                
+        return 0.0
+    except Exception as e:
+        print(f"Erro ao calcular LPU por faixa: {e}")
+        return 0.0
+
+def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico, metragem_cabo, valor_total):
     try:
         supabase.table("ATENDIMENTO").insert({
             "data_execucao": str(data_execucao),
@@ -83,7 +123,8 @@ def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, 
             "foto": foto_url,
             "responsavel": nome_tecnico,
             "cpf_tecnico": cpf_tecnico,
-            "metragem_cabo": metragem_cabo
+            "metragem_cabo": metragem_cabo,
+            "valor_total": float(valor_total)
         }).execute()
         return True
     except Exception as e:
@@ -387,6 +428,8 @@ else:
                 if not cliente or not endereco or not protocolo or not metragem_cabo:
                     st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
                 else:
+                    valor_calculado = calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao)
+                    
                     caminhos_fotos_atendimento = []
                     if fotos_arquivos:
                         for foto in fotos_arquivos[:5]:
@@ -409,9 +452,10 @@ else:
                         caminhos_fotos_atendimento, 
                         st.session_state.nome_tecnico, 
                         st.session_state.cpf_tecnico, 
-                        metragem_cabo
+                        metragem_cabo,
+                        valor_calculado
                     ):
-                        st.success("Atendimento registrado com sucesso!")
+                        st.success(f"Atendimento registrado com sucesso! (Valor LPU: R$ {valor_calculado:.2f})")
             
     with aba2: 
         st.subheader("Lista de Atendimentos")
@@ -647,20 +691,18 @@ else:
                         dados_lpu = supabase.table("LPU").select("*").execute()
                         
                         if not dados_lpu.data:
-                            df_lpu = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao"])
+                            df_lpu = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
                         else:
                             df_lpu = pd.DataFrame(dados_lpu.data)
                         
-                        # Mantém apenas as colunas relevantes visíveis e na ordem correta
-                        colunas_desejadas = ["servico", "valor", "descricao"]
-                        
-                        # Configuração para ocultar o ID e o created_at da tela
                         configuracao_colunas = {
                             "id": None,
                             "created_at": None,
                             "servico": st.column_config.TextColumn("Serviço", required=True),
                             "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
-                            "descricao": st.column_config.TextColumn("Descrição")
+                            "descricao": st.column_config.TextColumn("Descrição"),
+                            "min_metragem": st.column_config.NumberColumn("Mín Metragem", min_value=0.0),
+                            "max_metragem": st.column_config.NumberColumn("Máx Metragem", min_value=0.0)
                         }
                         
                         df_editada_lpu = st.data_editor(
@@ -668,7 +710,7 @@ else:
                             use_container_width=True, 
                             num_rows="dynamic",
                             column_config=configuracao_colunas,
-                            disabled=["id", "created_at"] # Impede alteração dos campos de sistema
+                            disabled=["id", "created_at"]
                         )
 
                         if st.button("SALVAR LPU", use_container_width=True):
@@ -682,11 +724,15 @@ else:
                                         
                                     id_val = row.get("id")
                                     descricao_val = row.get("descricao")
+                                    min_m_val = row.get("min_metragem")
+                                    max_m_val = row.get("max_metragem")
                                     
                                     dados_para_salvar = {
                                         "servico": str(servico_val),
                                         "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
-                                        "descricao": str(descricao_val) if pd.notnull(descricao_val) and descricao_val is not None else None
+                                        "descricao": str(descricao_val) if pd.notnull(descricao_val) and descricao_val is not None else None,
+                                        "min_metragem": float(min_m_val) if pd.notnull(min_m_val) and min_m_val is not None else None,
+                                        "max_metragem": float(max_m_val) if pd.notnull(max_m_val) and max_m_val is not None else None
                                     }
                                     
                                     if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
