@@ -551,9 +551,8 @@ with aba2:
                         
         else:
             st.info("Nenhum atendimento registrado.")
-            
-            
-    with aba3:
+
+with aba3:
         st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
         
         if st.session_state.get("sucesso_apr"):
@@ -681,7 +680,7 @@ with aba2:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar APR no banco: {e}")
-
+    
     if aba4 is not None: 
         with aba4:
             st.subheader("⚙️ PAINEL ADMINISTRATIVO")
