@@ -6,6 +6,21 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import os
 
+# --- CONFIGURAÇÃO DA PÁGINA E ESTADO ---
+# Certifique-se de que estas linhas estão no início do seu código Python, 
+# antes de qualquer verificação de login ou interface:
+
+if "logado" not in st.session_state:
+    st.session_state.logado = False
+if "modo_admin" not in st.session_state:
+    st.session_state.modo_admin = False
+if "nome_tecnico" not in st.session_state:
+    st.session_state.nome_tecnico = ""
+if "perfil" not in st.session_state:
+    st.session_state.perfil = ""
+if "cpf_tecnico" not in st.session_state:
+    st.session_state.cpf_tecnico = ""
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
     page_title="LRVIX - Sistema de Gestão Técnica",
