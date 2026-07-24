@@ -86,15 +86,34 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
         st.error("⚠️ Este CPF já está cadastrado!")
         return False
     try:
-        supabase.table("TECNICOS").insert({"nome": nome, "cpf": cpf, "email": email, "telefone": telefone, "senha": senha, "perfil": "Técnico"}).execute()
+        supabase.table("TECNICOS").insert({
+            "nome": nome, 
+            "cpf": cpf, 
+            "email": email, 
+            "telefone": telefone, 
+            "senha": senha, 
+            "perfil": "Técnico",
+            "lpu_atribuida": "LPU Padrão"
+        }).execute()
         return True
     except Exception as e:
         st.error(f"Erro ao cadastrar: {e}")
         return False
 
-def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao):
+def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tecnico):
     try:
-        res_lpu = supabase.table("LPU").select("*").execute()
+        # Descobre qual LPU está atribuída a este técnico no banco
+        tabela_lpu_alvo = "LPU"
+        try:
+            res_tec = supabase.table("TECNICOS").select("lpu_atribuida").eq("cpf", cpf_tecnico).execute()
+            if res_tec.data:
+                lpu_atribuida = res_tec.data[0].get("lpu_atribuida", "LPU Padrão")
+                if lpu_atribuida == "DELIVERY":
+                    tabela_lpu_alvo = "LPU_DELIVERY"
+        except Exception:
+            pass
+
+        res_lpu = supabase.table(tabela_lpu_alvo).select("*").execute()
         if not res_lpu.data:
             return 0.0
             
@@ -473,7 +492,7 @@ else:
                 if not cliente or not endereco or not protocolo or not metragem_cabo:
                     st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
                 else:
-                    valor_calculado = calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao)
+                    valor_calculado = calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, st.session_state.cpf_tecnico)
                     
                     caminhos_fotos_atendimento = []
                     if fotos_arquivos:
@@ -877,16 +896,38 @@ else:
         with aba5:
             st.subheader("⚙️ PAINEL ADMINISTRATIVO")
             
-            opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "💰 Tabela LPU"], horizontal=True)
+            opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "💰 Tabela LPU", "📦 Tabela LPU DELIVERY"], horizontal=True)
             senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
 
             if senha_admin == "123456":
                 if opcao_admin == "Perfis de Usuários":
-                    st.write("### 👤 Gerenciamento de Perfis")
+                    st.write("### 👤 Gerenciamento de Perfis e LPU por Técnico")
                     try:
                         dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
                         df_tecnicos = pd.DataFrame(dados_tecnicos.data)
-                        edited_df = st.data_editor(df_tecnicos, use_container_width=True)
+                        
+                        if "lpu_atribuida" not in df_tecnicos.columns:
+                            df_tecnicos["lpu_atribuida"] = "LPU Padrão"
+                            
+                        config_colunas_tec = {
+                            "id": None,
+                            "senha": None,
+                            "created_at": None,
+                            "nome": st.column_config.TextColumn("Nome", required=True),
+                            "cpf": st.column_config.TextColumn("CPF", required=True),
+                            "email": st.column_config.TextColumn("E-mail"),
+                            "telefone": st.column_config.TextColumn("Telefone"),
+                            "ativo": st.column_config.CheckboxColumn("Ativo"),
+                            "perfil": st.column_config.SelectboxColumn("Perfil", options=["Técnico", "Administrador"]),
+                            "lpu_atribuida": st.column_config.SelectboxColumn("LPU Atribuída", options=["LPU Padrão", "DELIVERY"], required=True)
+                        }
+
+                        edited_df = st.data_editor(
+                            df_tecnicos, 
+                            use_container_width=True,
+                            column_config=config_colunas_tec,
+                            disabled=["id", "senha", "created_at"]
+                        )
 
                         if st.button("SALVAR PERFIS", use_container_width=True):
                             for index, row in edited_df.iterrows():
@@ -896,7 +937,8 @@ else:
                                     "email": row["email"],
                                     "telefone": row["telefone"],
                                     "ativo": row["ativo"],
-                                    "perfil": row["perfil"]
+                                    "perfil": row["perfil"],
+                                    "lpu_atribuida": row.get("lpu_atribuida", "LPU Padrão")
                                 }).eq("id", row["id"]).execute()
                             st.success("Perfis atualizados!")
                             st.rerun()
@@ -962,3 +1004,63 @@ else:
                                 st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao acessar tabela LPU: {e}")
+
+                elif opcao_admin == "📦 Tabela LPU DELIVERY":
+                    st.write("### 📦 Gerenciamento da LPU - DELIVERY")
+                    try:
+                        dados_lpu_deliv = supabase.table("LPU_DELIVERY").select("*").execute()
+                        
+                        if not dados_lpu_deliv.data:
+                            df_lpu_deliv = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
+                        else:
+                            df_lpu_deliv = pd.DataFrame(dados_lpu_deliv.data)
+                        
+                        configuracao_colunas_deliv = {
+                            "id": None,
+                            "created_at": None,
+                            "servico": st.column_config.TextColumn("Serviço", required=True),
+                            "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
+                            "descricao": st.column_config.TextColumn("Descrição"),
+                            "min_metragem": st.column_config.NumberColumn("Mín Metragem", min_value=0.0),
+                            "max_metragem": st.column_config.NumberColumn("Máx Metragem", min_value=0.0)
+                        }
+                        
+                        df_editada_lpu_deliv = st.data_editor(
+                            df_lpu_deliv, 
+                            use_container_width=True, 
+                            num_rows="dynamic",
+                            column_config=configuracao_colunas_deliv,
+                            disabled=["id", "created_at"]
+                        )
+
+                        if st.button("SALVAR LPU DELIVERY", use_container_width=True):
+                            with st.spinner("Salvando..."):
+                                for index, row in df_editada_lpu_deliv.iterrows():
+                                    servico_val = row.get("servico")
+                                    valor_val = row.get("valor")
+                                    
+                                    if not servico_val or pd.isna(servico_val):
+                                        continue
+                                        
+                                    id_val = row.get("id")
+                                    descricao_val = row.get("descricao")
+                                    min_m_val = row.get("min_metragem")
+                                    max_m_val = row.get("max_metragem")
+                                    
+                                    dados_para_salvar = {
+                                        "servico": str(servico_val),
+                                        "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
+                                        "descricao": str(descricao_val) if pd.notnull(descricao_val) and descricao_val is not None else None,
+                                        "min_metragem": float(min_m_val) if pd.notnull(min_m_val) and min_m_val is not None else None,
+                                        "max_metragem": float(max_m_val) if pd.notnull(max_m_val) and max_m_val is not None else None
+                                    }
+                                    
+                                    if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                        supabase.table("LPU_DELIVERY").update(dados_para_salvar).eq("id", id_val).execute()
+                                    else:
+                                        supabase.table("LPU_DELIVERY").insert(dados_para_salvar).execute()
+                                        
+                                st.success("Tabela LPU DELIVERY atualizada com sucesso!")
+                                st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao acessar tabela LPU_DELIVERY: {e}")
