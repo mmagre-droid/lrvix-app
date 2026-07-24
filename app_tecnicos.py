@@ -904,8 +904,12 @@ else:
                         dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
                         df_tecnicos = pd.DataFrame(dados_tecnicos.data)
                         
+                        # Garante que a coluna existe e substitui valores vazios/NaN por 'LPU Padrão'
                         if "lpu_atribuida" not in df_tecnicos.columns:
                             df_tecnicos["lpu_atribuida"] = "LPU Padrão"
+                        else:
+                            df_tecnicos["lpu_atribuida"] = df_tecnicos["lpu_atribuida"].fillna("LPU Padrão")
+                            df_tecnicos["lpu_atribuida"] = df_tecnicos["lpu_atribuida"].replace("", "LPU Padrão")
                             
                         config_colunas_tec = {
                             "id": None,
@@ -929,6 +933,10 @@ else:
 
                         if st.button("SALVAR PERFIS", use_container_width=True):
                             for index, row in edited_df.iterrows():
+                                lpu_val = row.get("lpu_atribuida")
+                                if pd.isna(lpu_val) or not lpu_val:
+                                    lpu_val = "LPU Padrão"
+                                    
                                 supabase.table("TECNICOS").update({
                                     "nome": row["nome"],
                                     "cpf": row["cpf"],
@@ -936,9 +944,9 @@ else:
                                     "telefone": row["telefone"],
                                     "ativo": row["ativo"],
                                     "perfil": row["perfil"],
-                                    "lpu_atribuida": row.get("lpu_atribuida", "LPU Padrão")
+                                    "lpu_atribuida": lpu_val
                                 }).eq("id", row["id"]).execute()
-                            st.success("Perfis atualizados!")
+                            st.success("Perfis atualizados com sucesso!")
                             st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao carregar perfis: {e}")
