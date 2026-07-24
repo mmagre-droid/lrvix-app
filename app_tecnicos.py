@@ -667,7 +667,7 @@ else:
                                 with cols[idx]:
                                     try:
                                         res_bytes = supabase.storage.from_("fotos_atendimentos").download(caminho_foto)
-                                        st.image(res_bytes, caption=f"Anexo {idx+1}", use_column_width=True)
+                                        st.image(res_bytes, caption=f"Anexo {idx+1}", use_container_width=True)
                                     except Exception as e:
                                         st.error(f"Erro ao carregar a foto {idx+1}")
                         else:
