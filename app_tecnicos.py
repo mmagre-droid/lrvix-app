@@ -904,7 +904,7 @@ else:
                         st.error(f"Erro ao carregar perfis: {e}")
 
                 elif opcao_admin == "💰 Tabela LPU":
-                    st.write("### 💰 Gerenciamento da LPU")
+                    st.write("### 💰 Gerenciamento da LPU - FIELD")
                     try:
                         dados_lpu = supabase.table("LPU").select("*").execute()
                         
