@@ -6,10 +6,14 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import os
 
-# --- CONFIGURAÇÃO DA PÁGINA E ESTADO ---
-# Certifique-se de que estas linhas estão no início do seu código Python, 
-# antes de qualquer verificação de login ou interface:
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(
+    page_title="LRVIX - Sistema de Gestão Técnica",
+    page_icon="⚡",
+    layout="wide"
+)
 
+# --- INICIALIZAÇÃO CORRETA DO ESTADO DA SESSÃO (CORREÇÃO DO F5) ---
 if "logado" not in st.session_state:
     st.session_state.logado = False
 if "modo_admin" not in st.session_state:
@@ -20,13 +24,6 @@ if "perfil" not in st.session_state:
     st.session_state.perfil = ""
 if "cpf_tecnico" not in st.session_state:
     st.session_state.cpf_tecnico = ""
-
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(
-    page_title="LRVIX - Sistema de Gestão Técnica",
-    page_icon="⚡",
-    layout="wide"
-)
 
 # --- ESTILIZAÇÃO CSS (OCULTA CABEÇALHO, MENU, ÍCONES FLUTUANTES E GITHUB) ---
 st.markdown("""
@@ -89,11 +86,6 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 
 supabase = create_client(url, key)
-
-if "logado" not in st.session_state:
-    st.session_state.logado = False
-if "modo_admin" not in st.session_state:
-    st.session_state.modo_admin = False
 
 def cadastrar_tecnico(nome, cpf, email, telefone, senha):
     existe = supabase.table("TECNICOS").select("cpf").eq("cpf", cpf).execute()
@@ -1052,7 +1044,6 @@ else:
                 elif opcao_admin == "📦 Tabela LPU DELIVERY":
                     st.write("### 📦 Gerenciamento da LPU - DELIVERY")
                     try:
-                        # Alterado para buscar com espaço, correspondendo ao banco atual
                         dados_lpu_deliv = supabase.table("LPU DELIVERY").select("*").execute()
                         
                         if not dados_lpu_deliv.data:
