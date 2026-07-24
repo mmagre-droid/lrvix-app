@@ -28,6 +28,17 @@ if "cpf_tecnico" not in st.session_state:
 # --- ESTILIZAÇÃO CSS (OCULTA CABEÇALHO, MENU, ÍCONES FLUTUANTES E GITHUB) ---
 st.markdown("""
     <style>
+
+    /* ⬇️ ADICIONE ESTA PARTE PARA BLOQUEAR O PULL-TO-REFRESH NO CELULAR ⬇️ */
+        body, html {
+            overscroll-behavior-y: none;
+        }
+        
+        /* Oculta completamente o cabeçalho e rodapé padrão do Streamlit */
+        header {visibility: hidden !important; display: none !important;}
+        #MainMenu {visibility: hidden !important; display: none !important;}
+        footer {visibility: hidden !important; display: none !important;}
+        
         /* Oculta completamente o cabeçalho e rodapé padrão do Streamlit */
         header {visibility: hidden !important; display: none !important;}
         #MainMenu {visibility: hidden !important; display: none !important;}
