@@ -13,6 +13,22 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- CONFIGURAÇÃO DE PWA PARA TRANSFORMAR EM APLICATIVO ---
+st.markdown("""
+    <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js').then(function(registration) {
+                    console.log('ServiceWorker registrado com sucesso: ', registration.scope);
+                }, function(err) {
+                    console.log('Falha ao registrar o ServiceWorker: ', err);
+                });
+            });
+        }
+    </script>
+""", unsafe_allow_html=True)
+
 # --- INICIALIZAÇÃO E RECUPERAÇÃO DA SESSÃO VIA URL (CORREÇÃO DO F5) ---
 if "logado" not in st.session_state:
     query_params = st.query_params
@@ -41,7 +57,7 @@ if "cpf_tecnico" not in st.session_state:
 st.markdown("""
     <style>
 
-    /* ⬇️ ADICIONE ESTA PARTE PARA BLOQUEAR O PULL-TO-REFRESH NO CELULAR ⬇️ */
+    /* ⬇️ BLOQUEIA O PULL-TO-REFRESH NO CELULAR ⬇️ */
         body, html {
             overscroll-behavior-y: none;
         }
@@ -104,26 +120,6 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 
 supabase = create_client(url, key)
-
-def cadastrar_tecnico(nome, cpf, email, telefone, senha):
-    existe = supabase.table("TECNICOS").select("cpf").eq("cpf", cpf).execute()
-    if existe.data:
-        st.error("⚠️ Este CPF já está cadastrado!")
-        return False
-    try:
-        supabase.table("TECNICOS").insert({
-            "nome": nome, 
-            "cpf": cpf, 
-            "email": email, 
-            "telefone": telefone, 
-            "senha": senha, 
-            "perfil": "Técnico",
-            "lpu_atribuida": "LPU Padrão"
-        }).execute()
-        return True
-    except Exception as e:
-        st.error(f"Erro ao cadastrar: {e}")
-        return False
 
 def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tecnico):
     try:
@@ -434,53 +430,41 @@ if not st.session_state.logado:
         st.markdown("<h2 style='text-align: center;'>⚡ LRVIX Acesso</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: gray;'>Sistema de Gestão Técnica</p>", unsafe_allow_html=True)
         
-        tab1, tab2 = st.tabs(["Login", "Cadastrar Técnico"])
-        with tab1:
-            cpf_input = st.text_input("CPF")
-            senha_input = st.text_input("Senha", type="password", key="login_senha")
-            st.write("")
-            if st.button("Entrar", use_container_width=True):
-                try:
-                    user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
+        # Apenas a tela de login padrão (Removida a aba pública de cadastro)
+        cpf_input = st.text_input("CPF")
+        senha_input = st.text_input("Senha", type="password", key="login_senha")
+        st.write("")
+        if st.button("Entrar", use_container_width=True):
+            try:
+                user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
+                
+                if user_query.data:
+                    dados_user = user_query.data[0]
+                    senha_banco = str(dados_user.get("senha", "")).strip()
+                    senha_digitada = str(senha_input).strip()
                     
-                    if user_query.data:
-                        dados_user = user_query.data[0]
-                        senha_banco = str(dados_user.get("senha", "")).strip()
-                        senha_digitada = str(senha_input).strip()
-                        
-                        if senha_banco == senha_digitada:
-                            if dados_user.get("ativo") is True:
-                                st.session_state.logado = True
-                                st.session_state.nome_tecnico = dados_user["nome"]
-                                st.session_state.perfil = dados_user["perfil"]
-                                st.session_state.cpf_tecnico = dados_user["cpf"]
-                                
-                                # SALVA NA URL PARA SOBREVIVER AO F5
-                                st.query_params["logado"] = "True"
-                                st.query_params["nome"] = dados_user["nome"]
-                                st.query_params["perfil"] = dados_user["perfil"]
-                                st.query_params["cpf"] = dados_user["cpf"]
-                                
-                                st.rerun()
-                            else:
-                                st.error("⚠️ Este usuário está inativo.")
+                    if senha_banco == senha_digitada:
+                        if dados_user.get("ativo") is True:
+                            st.session_state.logado = True
+                            st.session_state.nome_tecnico = dados_user["nome"]
+                            st.session_state.perfil = dados_user["perfil"]
+                            st.session_state.cpf_tecnico = dados_user["cpf"]
+                            
+                            # SALVA NA URL PARA SOBREVIVER AO F5
+                            st.query_params["logado"] = "True"
+                            st.query_params["nome"] = dados_user["nome"]
+                            st.query_params["perfil"] = dados_user["perfil"]
+                            st.query_params["cpf"] = dados_user["cpf"]
+                            
+                            st.rerun()
                         else:
-                            st.error("❌ CPF ou Senha incorretos.")
+                            st.error("⚠️ Este usuário está inativo.")
                     else:
                         st.error("❌ CPF ou Senha incorretos.")
-                except Exception as e:
-                    st.error(f"Erro na conexão com o banco: {e}")
-        with tab2:
-            nome = st.text_input("Nome Completo")
-            cpf = st.text_input("CPF (somente números)")
-            email = st.text_input("E-mail")
-            telefone = st.text_input("Telefone")
-            senha = st.text_input("Senha", type="password", key="cad_senha")
-            confirma_senha = st.text_input("Confirme sua Senha", type="password", key="cad_confirma")
-            st.write("")
-            if st.button("Finalizar Cadastro", use_container_width=True):
-                if senha == confirma_senha and cadastrar_tecnico(nome, cpf, email, telefone, senha):
-                    st.success("Cadastro realizado com sucesso!")
+                else:
+                    st.error("❌ CPF ou Senha incorretos.")
+            except Exception as e:
+                st.error(f"Erro na conexão com o banco: {e}")
 
 else:
     col_h1, col_h2 = st.columns([3, 1])
@@ -534,8 +518,6 @@ else:
             with c2:
                 protocolo = st.text_input("PROTOCOLO")
                 mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
-                # Exibe a lista fixa (INTERNO, EXTERNO, IMPRODUTIVO) para LPU Padrão 
-                # ou a lista dinâmica vinda da tabela LPU DELIVERY para técnicos com DELIVERY
                 tipo_servico = st.selectbox("TIPO DE SERVIÇO", lista_opcoes_servicos)
             
             observacao = st.text_area("OBSERVAÇÃO")
@@ -950,7 +932,7 @@ else:
         with aba5:
             st.subheader("⚙️ PAINEL ADMINISTRATIVO")
             
-            opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "💰 Tabela LPU", "📦 Tabela LPU DELIVERY"], horizontal=True)
+            opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "Cadastrar Novo Usuário", "💰 Tabela LPU", "📦 Tabela LPU DELIVERY"], horizontal=True)
             senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
 
             if senha_admin == "@tl3t1c0":
@@ -960,7 +942,6 @@ else:
                         dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
                         df_tecnicos = pd.DataFrame(dados_tecnicos.data)
                         
-                        # Garante que a coluna existe e substitui valores vazios/NaN por 'LPU Padrão'
                         if "lpu_atribuida" not in df_tecnicos.columns:
                             df_tecnicos["lpu_atribuida"] = "LPU Padrão"
                         else:
@@ -1006,6 +987,40 @@ else:
                             st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao carregar perfis: {e}")
+
+                elif opcao_admin == "Cadastrar Novo Usuário":
+                    st.write("### ➕ Cadastro de Novo Técnico / Administrador")
+                    with st.form("form_cad_admin", clear_on_submit=True):
+                        c_nome = st.text_input("Nome Completo")
+                        c_cpf = st.text_input("CPF (somente números)")
+                        c_email = st.text_input("E-mail")
+                        c_telefone = st.text_input("Telefone")
+                        c_senha = st.text_input("Senha Inicial", type="password")
+                        c_perfil = st.selectbox("Perfil de Acesso", ["Técnico", "Administrador"])
+                        c_lpu = st.selectbox("LPU Atribuída", ["LPU Padrão", "DELIVERY"])
+                        
+                        if st.form_submit_button("CADASTRAR NOVO USUÁRIO", use_container_width=True):
+                            if not c_nome or not c_cpf or not c_senha:
+                                st.error("⚠️ Preencha os campos obrigatórios (Nome, CPF e Senha).")
+                            else:
+                                try:
+                                    existe = supabase.table("TECNICOS").select("cpf").eq("cpf", c_cpf).execute()
+                                    if existe.data:
+                                        st.error("⚠️ Este CPF já está cadastrado!")
+                                    else:
+                                        supabase.table("TECNICOS").insert({
+                                            "nome": c_nome, 
+                                            "cpf": c_cpf, 
+                                            "email": c_email, 
+                                            "telefone": c_telefone, 
+                                            "senha": c_senha, 
+                                            "perfil": c_perfil,
+                                            "lpu_atribuida": c_lpu,
+                                            "ativo": True
+                                        }).execute()
+                                        st.success(f"Usuário {c_nome} cadastrado com sucesso!")
+                                except Exception as e:
+                                    st.error(f"Erro ao cadastrar: {e}")
 
                 elif opcao_admin == "💰 Tabela LPU":
                     st.write("### 💰 Gerenciamento da LPU - FIELD")
