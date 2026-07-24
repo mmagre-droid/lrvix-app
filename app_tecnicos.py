@@ -471,25 +471,23 @@ else:
     with aba1:
         st.subheader("Novo Lançamento Operacional")
         
-        # --- BUSCA OS SERVIÇOS DA LPU CORRETA DO TÉCNICO LOGADO ---
+        # --- VERIFICA A LPU DO TÉCNICO PARA DEFINIR AS OPÇÕES DO TIPO DE SERVIÇO ---
         tabela_lpu_alvo = "LPU"
+        lista_opcoes_servicos = ["INTERNO", "EXTERNO", "IMPRODUTIVO"] # Padrão para LPU normal
+        
         try:
             res_tec = supabase.table("TECNICOS").select("lpu_atribuida").eq("cpf", st.session_state.cpf_tecnico).execute()
             if res_tec.data:
                 lpu_atribuida = res_tec.data[0].get("lpu_atribuida", "LPU Padrão")
+                
                 if lpu_atribuida == "DELIVERY":
                     tabela_lpu_alvo = "LPU DELIVERY"
-        except Exception:
-            pass
-
-        # Busca os nomes dos serviços na tabela correspondente
-        lista_opcoes_servicos = ["INTERNO", "EXTERNO", "IMPRODUTIVO"] # Fallback padrão
-        try:
-            res_servicos = supabase.table(tabela_lpu_alvo).select("servico").execute()
-            if res_servicos.data:
-                servicos_banco = [str(item.get("servico")).strip() for item in res_servicos.data if item.get("servico")]
-                if servicos_banco:
-                    lista_opcoes_servicos = servicos_banco
+                    # Busca os serviços cadastrados na tabela LPU DELIVERY
+                    res_servicos = supabase.table("LPU DELIVERY").select("servico").execute()
+                    if res_servicos.data:
+                        servicos_delivery = [str(item.get("servico")).strip() for item in res_servicos.data if item.get("servico")]
+                        if servicos_delivery:
+                            lista_opcoes_servicos = servicos_delivery
         except Exception as e:
             print(f"Erro ao carregar serviços da LPU: {e}")
 
@@ -503,7 +501,8 @@ else:
             with c2:
                 protocolo = st.text_input("PROTOCOLO")
                 mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
-                # Lista suspensa populada dinamicamente com os serviços da LPU do técnico
+                # Exibe a lista fixa (INTERNO, EXTERNO, IMPRODUTIVO) para LPU Padrão 
+                # ou a lista dinâmica vinda da tabela LPU DELIVERY para técnicos com DELIVERY
                 tipo_servico = st.selectbox("TIPO DE SERVIÇO", lista_opcoes_servicos)
             
             observacao = st.text_area("OBSERVAÇÃO")
