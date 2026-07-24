@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import time
+import re
 from supabase import create_client
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -37,12 +38,14 @@ if "logado" not in st.session_state:
         st.session_state.nome_tecnico = query_params.get("nome", "")
         st.session_state.perfil = query_params.get("perfil", "")
         st.session_state.cpf_tecnico = query_params.get("cpf", "")
+        st.session_state.precisa_trocar_senha = False
     else:
         st.session_state.logado = False
         st.session_state.modo_admin = False
         st.session_state.nome_tecnico = ""
         st.session_state.perfil = ""
         st.session_state.cpf_tecnico = ""
+        st.session_state.precisa_trocar_senha = False
 
 if "modo_admin" not in st.session_state:
     st.session_state.modo_admin = False
@@ -52,6 +55,8 @@ if "perfil" not in st.session_state:
     st.session_state.perfil = ""
 if "cpf_tecnico" not in st.session_state:
     st.session_state.cpf_tecnico = ""
+if "precisa_trocar_senha" not in st.session_state:
+    st.session_state.precisa_trocar_senha = False
 
 # --- ESTILIZAÇÃO CSS (OCULTA CABEÇALHO, MENU, ÍCONES FLUTUANTES E GITHUB) ---
 st.markdown("""
@@ -424,47 +429,100 @@ def gerar_pdf_apr(apr_id):
         c.save()
         return nome_arquivo
     
+# --- TELA DE LOGIN OU TROCA OBRIGATÓRIA DE SENHA ---
 if not st.session_state.logado:
     col_l1, col_l2, col_l3 = st.columns([1, 1.2, 1])
     with col_l2:
         st.markdown("<h2 style='text-align: center;'>⚡ LRVIX Acesso</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: gray;'>Sistema de Gestão Técnica</p>", unsafe_allow_html=True)
         
-        # Apenas a tela de login padrão (Removida a aba pública de cadastro)
-        cpf_input = st.text_input("CPF")
-        senha_input = st.text_input("Senha", type="password", key="login_senha")
-        st.write("")
-        if st.button("Entrar", use_container_width=True):
-            try:
-                user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
+        # Se o usuário logou com a senha temporária, interceptamos para obrigar a troca
+        if st.session_state.get("precisa_trocar_senha"):
+            st.warning("⚠️ **Primeiro Acesso Detectado!** Por segurança, você deve alterar sua senha padrão antes de continuar.")
+            
+            with st.form("form_nova_senha"):
+                nova_senha_input = st.text_input("Nova Senha", type="password")
+                confirma_senha_input = st.text_input("Confirme a Nova Senha", type="password")
                 
-                if user_query.data:
-                    dados_user = user_query.data[0]
-                    senha_banco = str(dados_user.get("senha", "")).strip()
-                    senha_digitada = str(senha_input).strip()
-                    
-                    if senha_banco == senha_digitada:
-                        if dados_user.get("ativo") is True:
+                st.caption("Requisitos da senha: mínimo de 8 caracteres, contendo letras maiúsculas, minúsculas e números.")
+                
+                if st.form_submit_button("Atualizar Senha", use_container_width=True):
+                    if nova_senha_input != confirma_senha_input:
+                        st.error("❌ As senhas não coincidem.")
+                    elif len(nova_senha_input) < 8:
+                        st.error("❌ A senha deve ter pelo menos 8 caracteres.")
+                    elif not re.search(r"[A-Z]", nova_senha_input):
+                        st.error("❌ A senha deve conter pelo menos uma letra maiúscula.")
+                    elif not re.search(r"[a-z]", nova_senha_input):
+                        st.error("❌ A senha deve conter pelo menos uma letra minúscula.")
+                    elif not re.search(r"\d", nova_senha_input):
+                        st.error("❌ A senha deve conter pelo menos um número.")
+                    else:
+                        try:
+                            # Atualiza a senha no Supabase e marca que não precisa mais trocar
+                            supabase.table("TECNICOS").update({
+                                "senha": nova_senha_input,
+                                "primeiro_acesso": False
+                            }).eq("cpf", st.session_state.cpf_tecnico).execute()
+                            
+                            st.session_state.precisa_trocar_senha = False
                             st.session_state.logado = True
-                            st.session_state.nome_tecnico = dados_user["nome"]
-                            st.session_state.perfil = dados_user["perfil"]
-                            st.session_state.cpf_tecnico = dados_user["cpf"]
                             
-                            # SALVA NA URL PARA SOBREVIVER AO F5
+                            # Configura parâmetros da URL
                             st.query_params["logado"] = "True"
-                            st.query_params["nome"] = dados_user["nome"]
-                            st.query_params["perfil"] = dados_user["perfil"]
-                            st.query_params["cpf"] = dados_user["cpf"]
+                            st.query_params["nome"] = st.session_state.nome_tecnico
+                            st.query_params["perfil"] = st.session_state.perfil
+                            st.query_params["cpf"] = st.session_state.cpf_tecnico
                             
+                            st.success("Senha alterada com sucesso!")
+                            time.sleep(1)
                             st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao atualizar senha: {e}")
+        else:
+            cpf_input = st.text_input("CPF")
+            senha_input = st.text_input("Senha", type="password", key="login_senha")
+            st.write("")
+            if st.button("Entrar", use_container_width=True):
+                try:
+                    user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
+                    
+                    if user_query.data:
+                        dados_user = user_query.data[0]
+                        senha_banco = str(dados_user.get("senha", "")).strip()
+                        senha_digitada = str(senha_input).strip()
+                        
+                        # Verifica se a coluna 'primeiro_acesso' existe e é True, ou se a senha é "123456"
+                        eh_primeiro_acesso = dados_user.get("primeiro_acesso", True) or senha_banco == "123456"
+                        
+                        if senha_banco == senha_digitada:
+                            if dados_user.get("ativo") is True:
+                                st.session_state.nome_tecnico = dados_user["nome"]
+                                st.session_state.perfil = dados_user["perfil"]
+                                st.session_state.cpf_tecnico = dados_user["cpf"]
+                                
+                                if eh_primeiro_acesso and senha_digitada == "123456":
+                                    st.session_state.precisa_trocar_senha = True
+                                    st.rerun()
+                                else:
+                                    st.session_state.logado = True
+                                    st.session_state.precisa_trocar_senha = False
+                                    
+                                    # SALVA NA URL PARA SOBREVIVER AO F5
+                                    st.query_params["logado"] = "True"
+                                    st.query_params["nome"] = dados_user["nome"]
+                                    st.query_params["perfil"] = dados_user["perfil"]
+                                    st.query_params["cpf"] = dados_user["cpf"]
+                                    
+                                    st.rerun()
+                            else:
+                                st.error("⚠️ Este usuário está inativo.")
                         else:
-                            st.error("⚠️ Este usuário está inativo.")
+                            st.error("❌ CPF ou Senha incorretos.")
                     else:
                         st.error("❌ CPF ou Senha incorretos.")
-                else:
-                    st.error("❌ CPF ou Senha incorretos.")
-            except Exception as e:
-                st.error(f"Erro na conexão com o banco: {e}")
+                except Exception as e:
+                    st.error(f"Erro na conexão com o banco: {e}")
 
 else:
     col_h1, col_h2 = st.columns([3, 1])
@@ -474,6 +532,7 @@ else:
     with col_h2:
         if st.button("🚪 Sair do Sistema", use_container_width=True):
             st.session_state.logado = False
+            st.session_state.precisa_trocar_senha = False
             st.query_params.clear()
             st.rerun()
 
@@ -579,6 +638,11 @@ else:
                 colunas_para_ocultar.extend(['foto', 'responsavel', 'valor_total'])
             
             df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
+            
+            # Formata a coluna valor_total com 2 casas decimais para evitar excesso de zeros
+            if 'valor_total' in df_exibicao.columns:
+                df_exibicao['valor_total'] = pd.to_numeric(df_exibicao['valor_total'], errors='coerce').map(lambda x: f"R$ {x:,.2f}" if pd.notnull(x) else "")
+
             st.dataframe(df_exibicao, use_container_width=True)
             
             st.write("")
@@ -952,6 +1016,7 @@ else:
                             "id": None,
                             "senha": None,
                             "created_at": None,
+                            "primeiro_acesso": None,
                             "nome": st.column_config.TextColumn("Nome", required=True),
                             "cpf": st.column_config.TextColumn("CPF", required=True),
                             "email": st.column_config.TextColumn("E-mail"),
@@ -965,7 +1030,7 @@ else:
                             df_tecnicos, 
                             use_container_width=True,
                             column_config=config_colunas_tec,
-                            disabled=["id", "senha", "created_at"]
+                            disabled=["id", "senha", "created_at", "primeiro_acesso"]
                         )
 
                         if st.button("SALVAR PERFIS", use_container_width=True):
@@ -995,7 +1060,7 @@ else:
                         c_cpf = st.text_input("CPF (somente números)")
                         c_email = st.text_input("E-mail")
                         c_telefone = st.text_input("Telefone")
-                        c_senha = st.text_input("Senha Inicial", type="password")
+                        c_senha = st.text_input("Senha Inicial", value="123456", type="password")
                         c_perfil = st.selectbox("Perfil de Acesso", ["Técnico", "Administrador"])
                         c_lpu = st.selectbox("LPU Atribuída", ["LPU Padrão", "DELIVERY"])
                         
@@ -1016,7 +1081,8 @@ else:
                                             "senha": c_senha, 
                                             "perfil": c_perfil,
                                             "lpu_atribuida": c_lpu,
-                                            "ativo": True
+                                            "ativo": True,
+                                            "primeiro_acesso": True if c_senha == "123456" else False
                                         }).execute()
                                         st.success(f"Usuário {c_nome} cadastrado com sucesso!")
                                 except Exception as e:
