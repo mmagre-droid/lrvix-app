@@ -102,14 +102,13 @@ def cadastrar_tecnico(nome, cpf, email, telefone, senha):
 
 def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tecnico):
     try:
-        # Descobre qual LPU está atribuída a este técnico no banco
         tabela_lpu_alvo = "LPU"
         try:
             res_tec = supabase.table("TECNICOS").select("lpu_atribuida").eq("cpf", cpf_tecnico).execute()
             if res_tec.data:
                 lpu_atribuida = res_tec.data[0].get("lpu_atribuida", "LPU Padrão")
                 if lpu_atribuida == "DELIVERY":
-                    tabela_lpu_alvo = "LPU_DELIVERY"
+                    tabela_lpu_alvo = "LPU DELIVERY"
         except Exception:
             pass
 
@@ -452,7 +451,6 @@ if not st.session_state.logado:
                     st.success("Cadastro realizado com sucesso!")
 
 else:
-    # --- CABEÇALHO / BARRA SUPERIOR PROFISSIONAL ---
     col_h1, col_h2 = st.columns([3, 1])
     with col_h1:
         st.markdown(f"### ⚡ Olá, **{st.session_state.nome_tecnico}**")
@@ -1008,7 +1006,8 @@ else:
                 elif opcao_admin == "📦 Tabela LPU DELIVERY":
                     st.write("### 📦 Gerenciamento da LPU - DELIVERY")
                     try:
-                        dados_lpu_deliv = supabase.table("LPU_DELIVERY").select("*").execute()
+                        # Alterado para buscar com espaço, correspondendo ao banco atual
+                        dados_lpu_deliv = supabase.table("LPU DELIVERY").select("*").execute()
                         
                         if not dados_lpu_deliv.data:
                             df_lpu_deliv = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
@@ -1056,11 +1055,11 @@ else:
                                     }
                                     
                                     if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
-                                        supabase.table("LPU_DELIVERY").update(dados_para_salvar).eq("id", id_val).execute()
+                                        supabase.table("LPU DELIVERY").update(dados_para_salvar).eq("id", id_val).execute()
                                     else:
-                                        supabase.table("LPU_DELIVERY").insert(dados_para_salvar).execute()
+                                        supabase.table("LPU DELIVERY").insert(dados_para_salvar).execute()
                                         
                                 st.success("Tabela LPU DELIVERY atualizada com sucesso!")
                                 st.rerun()
                     except Exception as e:
-                        st.error(f"Erro ao acessar tabela LPU_DELIVERY: {e}")
+                        st.error(f"Erro ao acessar tabela LPU DELIVERY: {e}")
