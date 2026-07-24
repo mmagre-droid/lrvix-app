@@ -13,9 +13,21 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- INICIALIZAÇÃO CORRETA DO ESTADO DA SESSÃO (CORREÇÃO DO F5) ---
+# --- INICIALIZAÇÃO E RECUPERAÇÃO DA SESSÃO VIA URL (CORREÇÃO DO F5) ---
 if "logado" not in st.session_state:
-    st.session_state.logado = False
+    query_params = st.query_params
+    if "logado" in query_params and query_params["logado"] == "True":
+        st.session_state.logado = True
+        st.session_state.nome_tecnico = query_params.get("nome", "")
+        st.session_state.perfil = query_params.get("perfil", "")
+        st.session_state.cpf_tecnico = query_params.get("cpf", "")
+    else:
+        st.session_state.logado = False
+        st.session_state.modo_admin = False
+        st.session_state.nome_tecnico = ""
+        st.session_state.perfil = ""
+        st.session_state.cpf_tecnico = ""
+
 if "modo_admin" not in st.session_state:
     st.session_state.modo_admin = False
 if "nome_tecnico" not in st.session_state:
@@ -33,11 +45,6 @@ st.markdown("""
         body, html {
             overscroll-behavior-y: none;
         }
-        
-        /* Oculta completamente o cabeçalho e rodapé padrão do Streamlit */
-        header {visibility: hidden !important; display: none !important;}
-        #MainMenu {visibility: hidden !important; display: none !important;}
-        footer {visibility: hidden !important; display: none !important;}
         
         /* Oculta completamente o cabeçalho e rodapé padrão do Streamlit */
         header {visibility: hidden !important; display: none !important;}
@@ -447,6 +454,13 @@ if not st.session_state.logado:
                                 st.session_state.nome_tecnico = dados_user["nome"]
                                 st.session_state.perfil = dados_user["perfil"]
                                 st.session_state.cpf_tecnico = dados_user["cpf"]
+                                
+                                # SALVA NA URL PARA SOBREVIVER AO F5
+                                st.query_params["logado"] = "True"
+                                st.query_params["nome"] = dados_user["nome"]
+                                st.query_params["perfil"] = dados_user["perfil"]
+                                st.query_params["cpf"] = dados_user["cpf"]
+                                
                                 st.rerun()
                             else:
                                 st.error("⚠️ Este usuário está inativo.")
@@ -476,6 +490,7 @@ else:
     with col_h2:
         if st.button("🚪 Sair do Sistema", use_container_width=True):
             st.session_state.logado = False
+            st.query_params.clear()
             st.rerun()
 
     st.markdown("---")
