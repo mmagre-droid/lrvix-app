@@ -470,6 +470,29 @@ else:
 
     with aba1:
         st.subheader("Novo Lançamento Operacional")
+        
+        # --- BUSCA OS SERVIÇOS DA LPU CORRETA DO TÉCNICO LOGADO ---
+        tabela_lpu_alvo = "LPU"
+        try:
+            res_tec = supabase.table("TECNICOS").select("lpu_atribuida").eq("cpf", st.session_state.cpf_tecnico).execute()
+            if res_tec.data:
+                lpu_atribuida = res_tec.data[0].get("lpu_atribuida", "LPU Padrão")
+                if lpu_atribuida == "DELIVERY":
+                    tabela_lpu_alvo = "LPU DELIVERY"
+        except Exception:
+            pass
+
+        # Busca os nomes dos serviços na tabela correspondente
+        lista_opcoes_servicos = ["INTERNO", "EXTERNO", "IMPRODUTIVO"] # Fallback padrão
+        try:
+            res_servicos = supabase.table(tabela_lpu_alvo).select("servico").execute()
+            if res_servicos.data:
+                servicos_banco = [str(item.get("servico")).strip() for item in res_servicos.data if item.get("servico")]
+                if servicos_banco:
+                    lista_opcoes_servicos = servicos_banco
+        except Exception as e:
+            print(f"Erro ao carregar serviços da LPU: {e}")
+
         with st.form("form_atendimento", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
@@ -480,7 +503,8 @@ else:
             with c2:
                 protocolo = st.text_input("PROTOCOLO")
                 mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
-                tipo_servico = st.selectbox("TIPO DE SERVIÇO", ["INTERNO", "EXTERNO", "IMPRODUTIVO"])
+                # Lista suspensa populada dinamicamente com os serviços da LPU do técnico
+                tipo_servico = st.selectbox("TIPO DE SERVIÇO", lista_opcoes_servicos)
             
             observacao = st.text_area("OBSERVAÇÃO")
             fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
