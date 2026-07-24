@@ -154,7 +154,7 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
             
             if min_m is not None and max_m is not None:
                 if float(min_m) <= metragem <= float(max_m):
-                    return float(item.get("valor", 0.0))
+                    return round(float(item.get("valor", 0.0)), 2)
         
         faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem") is not None]
         if faixas_com_metragem and metragem > 0:
@@ -176,12 +176,12 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                     valor_adicional_bloco = valor_base * (100.0 / teto_max)
                 
                 blocos_extras = (excedente // 100.0) + (1 if excedente % 100.0 > 0 else 0)
-                return valor_base + (blocos_extras * valor_adicional_bloco)
+                return round(valor_base + (blocos_extras * valor_adicional_bloco), 2)
                     
         for item in res_lpu.data:
             nome_servico = str(item.get("servico", "")).strip().lower()
             if nome_servico == servico_lower:
-                return float(item.get("valor", 0.0))
+                return round(float(item.get("valor", 0.0)), 2)
                 
         return 0.0
     except Exception as e:
