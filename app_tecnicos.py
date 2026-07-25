@@ -950,22 +950,20 @@ else:
                 with tc1:
                     cliente_troca = st.text_input("Nome do Cliente / Protocolo")
                     equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="eq_novo")
-                    serial_saida = st.text_input("Serial do Equipamento NOVO que está saindo")
                 with tc2:
                     equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="eq_velho")
-                    serial_entrada = st.text_input("Serial do Equipamento VELHO que está entrando")
                     status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"])
                 
                 motivo_troca = st.text_area("Motivo da Troca (ex: Queimado por raio, lentidão)")
                 
                 if st.form_submit_button("CONFIRMAR TROCA DE EQUIPAMENTOS", use_container_width=True):
-                    if not cliente_troca or not serial_saida or not serial_entrada or equipamento_novo == "Selecione..." or equipamento_velho == "Selecione...":
+                    if not cliente_troca or equipamento_novo == "Selecione..." or equipamento_velho == "Selecione...":
                         st.error("⚠️ Preencha os campos obrigatórios e selecione os equipamentos corretamente.")
                     else:
                         try:
                             supabase.table("ESTOQUE").insert({
                                 "equipamento": equipamento_novo,
-                                "serial": serial_saida,
+                                "serial": "N/A",
                                 "status": f"INSTALADO - {cliente_troca}",
                                 "localizacao": f"CLIENTE: {cliente_troca}",
                                 "observacao": f"Saída por troca. Motivo: {motivo_troca}"
@@ -973,7 +971,7 @@ else:
                             
                             supabase.table("ESTOQUE").insert({
                                 "equipamento": equipamento_velho,
-                                "serial": serial_entrada,
+                                "serial": "N/A",
                                 "status": status_velho,
                                 "localizacao": "ESTOQUE CENTRAL",
                                 "observacao": f"Retirado do cliente {cliente_troca}. Motivo: {motivo_troca}"
@@ -982,7 +980,7 @@ else:
                             supabase.table("HISTORICO_ESTOQUE").insert({
                                 "tipo_movimentacao": "TROCA",
                                 "equipamento": f"Novo: {equipamento_novo} | Velho: {equipamento_velho}",
-                                "serial": f"Saiu: {serial_saida} / Entrou: {serial_entrada}",
+                                "serial": "N/A",
                                 "responsavel": st.session_state.nome_tecnico,
                                 "detalhes": f"Cliente: {cliente_troca} | Motivo: {motivo_troca}"
                             }).execute()
@@ -990,7 +988,6 @@ else:
                             st.success("Troca registrada com sucesso! Equipamento novo baixado e velho adicionado ao estoque.")
                         except Exception as e:
                             st.error(f"Erro ao processar troca: {e}")
-
         with sub_aba3:
             st.markdown("### Saldo Atual do Estoque e Histórico")
             try:
