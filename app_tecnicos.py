@@ -436,7 +436,6 @@ if not st.session_state.logado:
         st.markdown("<h2 style='text-align: center;'>⚡ LRVIX Acesso</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: gray;'>Sistema de Gestão Técnica</p>", unsafe_allow_html=True)
         
-        # Se o usuário logou com a senha temporária, interceptamos para obrigar a troca
         if st.session_state.get("precisa_trocar_senha"):
             st.warning("⚠️ **Primeiro Acesso Detectado!** Por segurança, você deve alterar sua senha padrão antes de continuar.")
             
@@ -459,7 +458,6 @@ if not st.session_state.logado:
                         st.error("❌ A senha deve conter pelo menos um número.")
                     else:
                         try:
-                            # Atualiza a senha no Supabase e marca que não precisa mais trocar
                             supabase.table("TECNICOS").update({
                                 "senha": nova_senha_input,
                                 "primeiro_acesso": False
@@ -468,7 +466,6 @@ if not st.session_state.logado:
                             st.session_state.precisa_trocar_senha = False
                             st.session_state.logado = True
                             
-                            # Configura parâmetros da URL
                             st.query_params["logado"] = "True"
                             st.query_params["nome"] = st.session_state.nome_tecnico
                             st.query_params["perfil"] = st.session_state.perfil
@@ -492,7 +489,6 @@ if not st.session_state.logado:
                         senha_banco = str(dados_user.get("senha", "")).strip()
                         senha_digitada = str(senha_input).strip()
                         
-                        # Verifica se a coluna 'primeiro_acesso' existe e é True, ou se a senha é "123456"
                         eh_primeiro_acesso = dados_user.get("primeiro_acesso", True) or senha_banco == "123456"
                         
                         if senha_banco == senha_digitada:
@@ -508,7 +504,6 @@ if not st.session_state.logado:
                                     st.session_state.logado = True
                                     st.session_state.precisa_trocar_senha = False
                                     
-                                    # SALVA NA URL PARA SOBREVIVER AO F5
                                     st.query_params["logado"] = "True"
                                     st.query_params["nome"] = dados_user["nome"]
                                     st.query_params["perfil"] = dados_user["perfil"]
@@ -547,9 +542,8 @@ else:
     with aba1:
         st.subheader("Novo Lançamento Operacional")
         
-        # --- VERIFICA A LPU DO TÉCNICO PARA DEFINIR AS OPÇÕES DO TIPO DE SERVIÇO ---
         tabela_lpu_alvo = "LPU"
-        lista_opcoes_servicos = ["INTERNO", "EXTERNO", "IMPRODUTIVO"] # Padrão para LPU normal
+        lista_opcoes_servicos = ["INTERNO", "EXTERNO", "IMPRODUTIVO"]
         
         try:
             res_tec = supabase.table("TECNICOS").select("lpu_atribuida").eq("cpf", st.session_state.cpf_tecnico).execute()
@@ -558,7 +552,6 @@ else:
                 
                 if lpu_atribuida == "DELIVERY":
                     tabela_lpu_alvo = "LPU DELIVERY"
-                    # Busca os serviços cadastrados na tabela LPU DELIVERY
                     res_servicos = supabase.table("LPU DELIVERY").select("servico").execute()
                     if res_servicos.data:
                         servicos_delivery = [str(item.get("servico")).strip() for item in res_servicos.data if item.get("servico")]
@@ -619,14 +612,11 @@ else:
     with aba2: 
         st.subheader("Lista de Atendimentos")
         
-        # --- FILTRO POR TÉCNICO EXCLUSIVO PARA ADMINISTRADOR ---
         if st.session_state.perfil == "Administrador":
             try:
-                # Busca a lista de técnicos cadastrados para preencher o selectbox
                 res_tecnicos = supabase.table("TECNICOS").select("nome, cpf").eq("ativo", True).execute()
                 lista_tecnicos = res_tecnicos.data if res_tecnicos.data else []
                 
-                # Cria um dicionário de mapeamento Nome -> CPF
                 opcoes_tec = {"Todos os Técnicos": "TODOS"}
                 for t in lista_tecnicos:
                     opcoes_tec[t["nome"]] = t["cpf"]
@@ -635,10 +625,8 @@ else:
                 with col_f1:
                     tecnico_selecionado = st.selectbox("Filtrar por Técnico:", list(opcoes_tec.keys()))
                 
-                # Monta a query base
                 query = supabase.table("ATENDIMENTO").select("*")
                 
-                # Aplica o filtro se não for "Todos os Técnicos"
                 if tecnico_selecionado != "Todos os Técnicos":
                     cpf_filtro = opcoes_tec[tecnico_selecionado]
                     query = query.eq("cpf_tecnico", cpf_filtro)
@@ -647,7 +635,6 @@ else:
                 st.error(f"Erro ao carregar lista de técnicos para o filtro: {e}")
                 query = supabase.table("ATENDIMENTO").select("*")
         else:
-            # Se for técnico comum, mantém restrito apenas aos atendimentos dele
             query = supabase.table("ATENDIMENTO").select("*").eq("cpf_tecnico", st.session_state.cpf_tecnico)
         
         atendimentos = query.execute()
@@ -665,7 +652,6 @@ else:
             
             df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
             
-            # Formata a coluna valor_total com 2 casas decimais para evitar excesso de zeros
             if 'valor_total' in df_exibicao.columns:
                 df_exibicao['valor_total'] = pd.to_numeric(df_exibicao['valor_total'], errors='coerce').map(lambda x: f"R$ {x:,.2f}" if pd.notnull(x) else "")
 
@@ -906,6 +892,15 @@ else:
     with aba4:
         st.subheader("📦 GESTÃO DE ESTOQUE E MOVIMENTAÇÕES")
         
+        # --- BUSCAR LISTA DE EQUIPAMENTOS CADASTRADOS ---
+        opcoes_equipamentos_cadastrados = ["Selecione..."]
+        try:
+            res_cad = supabase.table("CADASTRO_EQUIPAMENTOS").select("codigo, descricao").execute()
+            if res_cad.data:
+                opcoes_equipamentos_cadastrados += [f"{item['codigo']} - {item['descricao']}" for item in res_cad.data]
+        except Exception:
+            pass
+
         sub_aba1, sub_aba2, sub_aba3 = st.tabs(["➕ Entrada de Mercadoria", "🔄 Troca de Equipamento", "📋 Saldo e Histórico"])
         
         with sub_aba1:
@@ -913,7 +908,7 @@ else:
             with st.form("form_entrada_estoque", clear_on_submit=True):
                 ec1, ec2 = st.columns(2)
                 with ec1:
-                    item_nome = st.text_input("Nome do Equipamento / Material (ex: ONU, Roteiro, Cabo)")
+                    item_selecionado = st.selectbox("Nome do Equipamento / Material", opcoes_equipamentos_cadastrados)
                     serial_novo = st.text_input("Número de Série / MAC (Opcional se for material genérico)")
                 with ec2:
                     quantidade = st.number_input("Quantidade", min_value=1, value=1, step=1)
@@ -922,12 +917,12 @@ else:
                 obs_entrada = st.text_area("Observações da Entrada")
                 
                 if st.form_submit_button("REGISTRAR ENTRADA", use_container_width=True):
-                    if not item_nome:
-                        st.error("⚠️ Informe o nome do item.")
+                    if item_selecionado == "Selecione...":
+                        st.error("⚠️ Selecione o nome do equipamento.")
                     else:
                         try:
                             supabase.table("ESTOQUE").insert({
-                                "equipamento": item_nome,
+                                "equipamento": item_selecionado,
                                 "serial": serial_novo if serial_novo else "N/A",
                                 "status": "DISPONIVEL",
                                 "localizacao": "ESTOQUE CENTRAL",
@@ -936,7 +931,7 @@ else:
                             
                             supabase.table("HISTORICO_ESTOQUE").insert({
                                 "tipo_movimentacao": "ENTRADA",
-                                "equipamento": item_nome,
+                                "equipamento": item_selecionado,
                                 "serial": serial_novo if serial_novo else "N/A",
                                 "responsavel": st.session_state.nome_tecnico,
                                 "detalhes": f"Entrada de {quantidade} un. Origem: {obs_entrada or 'N/A'}"
@@ -954,18 +949,18 @@ else:
                 tc1, tc2 = st.columns(2)
                 with tc1:
                     cliente_troca = st.text_input("Nome do Cliente / Protocolo")
-                    equipamento_novo = st.text_input("Nome do Equipamento Novo (ex: ONU Huawei)")
+                    equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="eq_novo")
                     serial_saida = st.text_input("Serial do Equipamento NOVO que está saindo")
                 with tc2:
-                    equipamento_velho = st.text_input("Nome do Equipamento Velho / Retirado")
+                    equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="eq_velho")
                     serial_entrada = st.text_input("Serial do Equipamento VELHO que está entrando")
                     status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"])
                 
                 motivo_troca = st.text_area("Motivo da Troca (ex: Queimado por raio, lentidão)")
                 
                 if st.form_submit_button("CONFIRMAR TROCA DE EQUIPAMENTOS", use_container_width=True):
-                    if not cliente_troca or not serial_saida or not serial_entrada:
-                        st.error("⚠️ Preencha os campos obrigatórios (Cliente e Seriais).")
+                    if not cliente_troca or not serial_saida or not serial_entrada or equipamento_novo == "Selecione..." or equipamento_velho == "Selecione...":
+                        st.error("⚠️ Preencha os campos obrigatórios e selecione os equipamentos corretamente.")
                     else:
                         try:
                             supabase.table("ESTOQUE").insert({
@@ -1022,7 +1017,8 @@ else:
         with aba5:
             st.subheader("⚙️ PAINEL ADMINISTRATIVO")
             
-            opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "Cadastrar Novo Usuário", "💰 Tabela LPU", "📦 Tabela LPU DELIVERY"], horizontal=True)
+            # Adicionado "📋 Cadastro de Equipamento" nas opções do admin
+            opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "Cadastrar Novo Usuário", "💰 Tabela LPU", "📦 Tabela LPU DELIVERY", "📋 Cadastro de Equipamento"], horizontal=True)
             senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
 
             if senha_admin == "@tl3t1c0":
@@ -1233,3 +1229,54 @@ else:
                                 st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao acessar tabela LPU DELIVERY: {e}")
+
+                elif opcao_admin == "📋 Cadastro de Equipamento":
+                    st.write("### 📋 Gerenciamento de Cadastro de Equipamentos (Código e Descrição)")
+                    try:
+                        dados_cad_eq = supabase.table("CADASTRO_EQUIPAMENTOS").select("*").execute()
+                        
+                        if not dados_cad_eq.data:
+                            df_cad_eq = pd.DataFrame(columns=["id", "created_at", "codigo", "descricao"])
+                        else:
+                            df_cad_eq = pd.DataFrame(dados_cad_eq.data)
+                        
+                        config_colunas_cad_eq = {
+                            "id": None,
+                            "created_at": None,
+                            "codigo": st.column_config.TextColumn("Código", required=True),
+                            "descricao": st.column_config.TextColumn("Descrição do Equipamento", required=True)
+                        }
+                        
+                        df_editada_cad_eq = st.data_editor(
+                            df_cad_eq, 
+                            use_container_width=True, 
+                            num_rows="dynamic",
+                            column_config=config_colunas_cad_eq,
+                            disabled=["id", "created_at"]
+                        )
+
+                        if st.button("SALVAR CADASTRO DE EQUIPAMENTOS", use_container_width=True):
+                            with st.spinner("Salvando..."):
+                                for index, row in df_editada_cad_eq.iterrows():
+                                    codigo_val = row.get("codigo")
+                                    desc_val = row.get("descricao")
+                                    
+                                    if not codigo_val or pd.isna(codigo_val):
+                                        continue
+                                        
+                                    id_val = row.get("id")
+                                    
+                                    dados_para_salvar = {
+                                        "codigo": str(codigo_val).strip(),
+                                        "descricao": str(desc_val).strip() if pd.notnull(desc_val) else ""
+                                    }
+                                    
+                                    if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                        supabase.table("CADASTRO_EQUIPAMENTOS").update(dados_para_salvar).eq("id", id_val).execute()
+                                    else:
+                                        supabase.table("CADASTRO_EQUIPAMENTOS").insert(dados_para_salvar).execute()
+                                        
+                                st.success("Cadastro de Equipamentos atualizado com sucesso!")
+                                st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao acessar tabela de cadastro de equipamentos: {e}")
