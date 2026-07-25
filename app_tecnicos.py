@@ -619,10 +619,36 @@ else:
     with aba2: 
         st.subheader("Lista de Atendimentos")
         
-        query = supabase.table("ATENDIMENTO").select("*")
-        
-        if st.session_state.perfil != "Administrador":
-            query = query.eq("cpf_tecnico", st.session_state.cpf_tecnico)
+        # --- FILTRO POR TÉCNICO EXCLUSIVO PARA ADMINISTRADOR ---
+        if st.session_state.perfil == "Administrador":
+            try:
+                # Busca a lista de técnicos cadastrados para preencher o selectbox
+                res_tecnicos = supabase.table("TECNICOS").select("nome, cpf").eq("ativo", True).execute()
+                lista_tecnicos = res_tecnicos.data if res_tecnicos.data else []
+                
+                # Cria um dicionário de mapeamento Nome -> CPF
+                opcoes_tec = {"Todos os Técnicos": "TODOS"}
+                for t in lista_tecnicos:
+                    opcoes_tec[t["nome"]] = t["cpf"]
+                
+                col_f1, col_f2 = st.columns([2, 2])
+                with col_f1:
+                    tecnico_selecionado = st.selectbox("Filtrar por Técnico:", list(opcoes_tec.keys()))
+                
+                # Monta a query base
+                query = supabase.table("ATENDIMENTO").select("*")
+                
+                # Aplica o filtro se não for "Todos os Técnicos"
+                if tecnico_selecionado != "Todos os Técnicos":
+                    cpf_filtro = opcoes_tec[tecnico_selecionado]
+                    query = query.eq("cpf_tecnico", cpf_filtro)
+                    
+            except Exception as e:
+                st.error(f"Erro ao carregar lista de técnicos para o filtro: {e}")
+                query = supabase.table("ATENDIMENTO").select("*")
+        else:
+            # Se for técnico comum, mantém restrito apenas aos atendimentos dele
+            query = supabase.table("ATENDIMENTO").select("*").eq("cpf_tecnico", st.session_state.cpf_tecnico)
         
         atendimentos = query.execute()
             
