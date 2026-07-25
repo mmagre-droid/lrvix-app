@@ -909,21 +909,20 @@ else:
                 ec1, ec2 = st.columns(2)
                 with ec1:
                     item_selecionado = st.selectbox("Nome do Equipamento / Material", opcoes_equipamentos_cadastrados)
-                    serial_novo = st.text_input("Número de Série / MAC (Opcional se for material genérico)")
-                with ec2:
                     quantidade = st.number_input("Quantidade", min_value=1, value=1, step=1)
+                with ec2:
                     origem_nota = st.text_input("Nota Fiscal / Fornecedor / Origem")
                 
                 obs_entrada = st.text_area("Observações da Entrada")
                 
                 if st.form_submit_button("REGISTRAR ENTRADA", use_container_width=True):
-                    if item_selecionado == "Selecione...":
-                        st.error("⚠️ Selecione o nome do equipamento.")
+                    if item_selecionado == "Selecione..." or not quantidade or quantidade < 1:
+                        st.error("⚠️ Selecione o equipamento e informe uma quantidade válida.")
                     else:
                         try:
                             supabase.table("ESTOQUE").insert({
                                 "equipamento": item_selecionado,
-                                "serial": serial_novo if serial_novo else "N/A",
+                                "serial": "N/A",
                                 "status": "DISPONIVEL",
                                 "localizacao": "ESTOQUE CENTRAL",
                                 "observacao": obs_entrada
@@ -932,7 +931,7 @@ else:
                             supabase.table("HISTORICO_ESTOQUE").insert({
                                 "tipo_movimentacao": "ENTRADA",
                                 "equipamento": item_selecionado,
-                                "serial": serial_novo if serial_novo else "N/A",
+                                "serial": "N/A",
                                 "responsavel": st.session_state.nome_tecnico,
                                 "detalhes": f"Entrada de {quantidade} un. Origem: {obs_entrada or 'N/A'}"
                             }).execute()
@@ -940,7 +939,6 @@ else:
                             st.success("Entrada registrada com sucesso no estoque!")
                         except Exception as e:
                             st.error(f"Erro ao registrar entrada: {e}")
-
         with sub_aba2:
             st.markdown("### Registrar Troca de Equipamento (Cliente)")
             st.info("O equipamento **novo** sai do estoque para o cliente, e o equipamento **velho** (defeituoso/retirado) entra no estoque.")
