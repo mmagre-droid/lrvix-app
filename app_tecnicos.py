@@ -998,7 +998,12 @@ else:
                 if res_estoque.data:
                     st.write("#### 📊 Itens Cadastrados no Estoque")
                     df_est = pd.DataFrame(res_estoque.data)
-                    st.dataframe(df_est, use_container_width=True)
+                    
+                    # Ocultar colunas indesejadas (id, created_at, etc.)
+                    colunas_ocultar_est = ['id', 'created_at']
+                    df_est_exibicao = df_est[[col for col in df_est.columns if col not in colunas_ocultar_est]]
+                    
+                    st.dataframe(df_est_exibicao, use_container_width=True)
                 else:
                     st.info("Nenhum item registrado no estoque.")
                 
@@ -1007,7 +1012,20 @@ else:
                 if res_hist.data:
                     st.write("#### 📜 Histórico de Movimentações")
                     df_hist = pd.DataFrame(res_hist.data)
-                    st.dataframe(df_hist, use_container_width=True)
+                    
+                    # Tratativa para criar colunas separadas de Entrada e Saída no Histórico
+                    if 'serial' in df_hist.columns:
+                        df_hist['Entrada'] = df_hist['serial'].apply(lambda x: x.split('/')[1].strip() if isinstance(x, str) and '/' in x else ('1' if 'Entrada' in str(x) else '0'))
+                        df_hist['Saída'] = df_hist['serial'].apply(lambda x: x.split('/')[0].strip() if isinstance(x, str) and '/' in x else '0')
+                    else:
+                        df_hist['Entrada'] = '0'
+                        df_hist['Saída'] = '0'
+
+                    # Reorganizar ou ocultar colunas técnicas do histórico se necessário
+                    colunas_ocultar_hist = ['id', 'created_at', 'serial']
+                    df_hist_exibicao = df_hist[[col for col in df_hist.columns if col not in colunas_ocultar_hist]]
+                    
+                    st.dataframe(df_hist_exibicao, use_container_width=True)
                 else:
                     st.info("Nenhuma movimentação registrada.")
             except Exception as e:
