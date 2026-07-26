@@ -548,7 +548,7 @@ else:
 
 
     with aba1:
-        st.subheader("Novo Lançamento Operacional")
+        st.subheader("NOVO LANÇAMENTO OPERACIONAL")
         
         # --- BUSCAR LISTA DE EQUIPAMENTOS CADASTRADOS ---
         opcoes_equipamentos_cadastrados = ["Selecione..."]
