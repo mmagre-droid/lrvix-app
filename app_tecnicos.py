@@ -751,34 +751,23 @@ else:
                 df_calc = df.copy()
                 dias_trabalhados = df_calc['data_execucao'].nunique() if 'data_execucao' in df_calc.columns else 0
                 
-                # Padroniza a coluna para maiúsculo para garantir a exclusão correta
+                # Garante a conversão numérica direta da coluna original do banco antes de filtrar
+                df_calc['valor_numerico'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
+                
+                # Padroniza a coluna para maiúsculo para exclusão correta dos improdutivos
                 df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
                 
-                # Exclui da base de cálculo qualquer linha que contenha "IMPRODUTIVO"
+                # Filtra excluindo os improdutivos
                 df_produtivos = df_calc[~df_calc['tipo_servico_upper'].str.contains('IMPRODUTIVO', na=False)]
                 
                 total_servicos_produtivos = len(df_produtivos)
-                
-                # Média de serviços produtivos por dia trabalhado
                 media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
-                
-                # Limpa e converte a coluna de valores dos serviços produtivos para somar corretamente
-                if 'valor_total' in df_produtivos.columns:
-                    df_produtivos['valor_numerico'] = pd.to_numeric(
-                        df_produtivos['valor_total'].astype(str)
-                        .str.replace('R$', '', regex=True)
-                        .str.replace('.', '', regex=True)
-                        .str.replace(',', '.', regex=True), 
-                        errors='coerce'
-                    ).fillna(0.0)
-                else:
-                    df_produtivos['valor_numerico'] = 0.0
                 
                 soma_valor_produtivos = df_produtivos['valor_numerico'].sum()
                 ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
                 total_geral = soma_valor_produtivos
                 
-                # Resumo dinâmico apenas dos serviços produtivos considerados
+                # Resumo dinâmico dos serviços produtivos
                 contagem_servicos = df_produtivos['tipo_servico'].value_counts().to_dict()
                 resumo_servicos_str = " | ".join([f"{k}: {v}" for k, v in contagem_servicos.items()])
                 if not resumo_servicos_str:
