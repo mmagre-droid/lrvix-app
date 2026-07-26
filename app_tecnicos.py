@@ -569,24 +569,6 @@ else:
         except Exception:
             pass
 
-        # --- CHECKBOX FORA DO FORMULÁRIO PARA ATUALIZAR A TELA NA HORA ---
-        st.divider()
-        habilita_troca = st.checkbox("🔄 Realizar Troca de Equipamento neste Atendimento", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
-        
-        equipamento_velho = "Selecione..."
-        equipamento_novo = "Selecione..."
-        status_velho = "DEFEITO"
-        
-        if habilita_troca:
-            st.info("O equipamento **novo** sai do estoque para o cliente, e o equipamento **velho** (defeituoso/retirado) entra no estoque.")
-            tc1, tc2 = st.columns(2)
-            with tc1:
-                equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="form_eq_velho")
-            with tc2:
-                equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="form_eq_novo")
-            
-            status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"], key="form_status_velho")
-
         with st.form("form_atendimento", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
@@ -594,6 +576,21 @@ else:
                 cliente = st.text_input("NOME DO CLIENTE")
                 endereco = st.text_input("ENDEREÇO")
                 metragem_cabo = st.text_input("CABO UTILIZADO")
+                
+                # --- BOTÃO / CHECKBOX DE TROCA DE EQUIPAMENTO LOGO APÓS CABO UTILIZADO ---
+                st.divider()
+                habilita_troca = st.checkbox("🔄 Realizar Troca de Equipamento neste Atendimento", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
+                
+                equipamento_velho = "Selecione..."
+                equipamento_novo = "Selecione..."
+                status_velho = "DEFEITO"
+                
+                if habilita_troca:
+                    st.info("O equipamento **novo** sai do estoque para o cliente, e o equipamento **velho** (defeituoso/retirado) entra no estoque.")
+                    equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="form_eq_velho")
+                    equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="form_eq_novo")
+                    status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"], key="form_status_velho")
+
             with c2:
                 protocolo = st.text_input("PROTOCOLO")
                 mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
