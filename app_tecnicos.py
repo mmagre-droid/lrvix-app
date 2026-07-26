@@ -750,32 +750,50 @@ else:
             try:
                 df_calc = df.copy()
                 dias_trabalhados = df_calc['data_execucao'].nunique() if 'data_execucao' in df_calc.columns else 0
+                
+                # Padroniza a coluna para maiúsculo para garantir a exclusão correta
                 df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
                 
-                qtd_interno = len(df_calc[df_calc['tipo_servico_upper'] == 'INTERNO'])
-                qtd_externo = len(df_calc[df_calc['tipo_servico_upper'] == 'EXTERNO'])
-                qtd_improdutivo = len(df_calc[df_calc['tipo_servico_upper'] == 'IMPRODUTIVO'])
+                # Exclui da base de cálculo qualquer linha que contenha "IMPRODUTIVO"
+                df_produtivos = df_calc[~df_calc['tipo_servico_upper'].str.contains('IMPRODUTIVO', na=False)]
                 
-                total_servicos_produtivos = qtd_interno + qtd_externo
+                total_servicos_produtivos = len(df_produtivos)
+                
+                # Média de serviços produtivos por dia trabalhado
                 media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
                 
-                df_calc['valor_total'] = pd.to_numeric(df_calc['valor_total'].astype(str).str.replace('R$', '', regex=True).str.replace('.', '', regex=True).str.replace(',', '.', regex=True), errors='coerce').fillna(0.0)
-                df_produtivos = df_calc[df_calc['tipo_servico_upper'].isin(['INTERNO', 'EXTERNO'])]
-                soma_valor_produtivos = df_produtivos['valor_total'].sum()
+                # Limpa e converte a coluna de valores dos serviços produtivos para somar corretamente
+                if 'valor_total' in df_produtivos.columns:
+                    df_produtivos['valor_numerico'] = pd.to_numeric(
+                        df_produtivos['valor_total'].astype(str)
+                        .str.replace('R$', '', regex=True)
+                        .str.replace('.', '', regex=True)
+                        .str.replace(',', '.', regex=True), 
+                        errors='coerce'
+                    ).fillna(0.0)
+                else:
+                    df_produtivos['valor_numerico'] = 0.0
                 
+                soma_valor_produtivos = df_produtivos['valor_numerico'].sum()
                 ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
-                total_geral = df_calc['valor_total'].sum()
+                total_geral = soma_valor_produtivos
                 
+                # Resumo dinâmico apenas dos serviços produtivos considerados
+                contagem_servicos = df_produtivos['tipo_servico'].value_counts().to_dict()
+                resumo_servicos_str = " | ".join([f"{k}: {v}" for k, v in contagem_servicos.items()])
+                if not resumo_servicos_str:
+                    resumo_servicos_str = "Nenhum serviço produtivo"
+
                 tabela_html = f"""
                 <div style="overflow-x:auto;">
                     <table style="width:100%; border-collapse: collapse; text-align: center; font-family: sans-serif; font-size: 14px;">
                         <thead>
                             <tr style="background-color: #4a90e2; color: white;">
-                                <th style="border: 1px solid #ddd; padding: 10px;" colspan="5">PROJEÇÃO E INDICADORES</th>
+                                <th style="border: 1px solid #ddd; padding: 10px;" colspan="5">PROJEÇÃO E INDICADORES (EXCLUINDO IMPRODUTIVOS)</th>
                             </tr>
                             <tr style="background-color: #5ba4e6; color: white;">
                                 <th style="border: 1px solid #ddd; padding: 8px;">DIAS TRABALHADOS</th>
-                                <th style="border: 1px solid #ddd; padding: 8px;">SERV. INTERNO / EXTERNO</th>
+                                <th style="border: 1px solid #ddd; padding: 8px;">SERV. PRODUTIVOS ({resumo_servicos_str})</th>
                                 <th style="border: 1px solid #ddd; padding: 8px;">MED. SERVIÇO</th>
                                 <th style="border: 1px solid #ddd; padding: 8px;">TICKET MÉDIO</th>
                                 <th style="border: 1px solid #ddd; padding: 8px;">T. GERAL</th>
@@ -784,7 +802,7 @@ else:
                         <tbody>
                             <tr style="background-color: #f9f9f9; color: #333; font-weight: bold;">
                                 <td style="border: 1px solid #ddd; padding: 10px;">{dias_trabalhados}</td>
-                                <td style="border: 1px solid #ddd; padding: 10px;">{qtd_interno} Int / {qtd_externo} Ext (Tot: {total_servicos_produtivos})</td>
+                                <td style="border: 1px solid #ddd; padding: 10px;">{total_servicos_produtivos}</td>
                                 <td style="border: 1px solid #ddd; padding: 10px;">{media_servico:.2f}</td>
                                 <td style="border: 1px solid #ddd; padding: 10px;">R$ {ticket_medio:,.2f}</td>
                                 <td style="border: 1px solid #ddd; padding: 10px;">R$ {total_geral:,.2f}</td>
