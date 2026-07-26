@@ -539,6 +539,7 @@ else:
         aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "📦 ESTOQUE"])
         aba5 = None
 
+
     with aba1:
         st.subheader("Novo Lançamento Operacional")
         
@@ -569,24 +570,6 @@ else:
         except Exception:
             pass
 
-        # --- CHECKBOX FORA DO FORMULÁRIO PARA ATUALIZAR A TELA NA HORA ---
-        st.divider()
-        habilita_troca = st.checkbox("🔄 Realizar Troca de Equipamento neste Atendimento", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
-        
-        equipamento_velho = "Selecione..."
-        equipamento_novo = "Selecione..."
-        status_velho = "DEFEITO"
-        
-        if habilita_troca:
-            st.info("O equipamento **novo** sai do estoque para o cliente, e o equipamento **velho** (defeituoso/retirado) entra no estoque.")
-            tc1, tc2 = st.columns(2)
-            with tc1:
-                equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="form_eq_velho")
-            with tc2:
-                equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="form_eq_novo")
-            
-            status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"], key="form_status_velho")
-
         with st.form("form_atendimento", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
@@ -602,70 +585,89 @@ else:
             observacao = st.text_area("OBSERVAÇÃO")
             fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
             
-            st.write("")
-            if st.form_submit_button("REGISTRAR ATENDIMENTO", use_container_width=True):
-                if not cliente or not endereco or not protocolo or not metragem_cabo:
-                    st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
-                elif habilita_troca and (equipamento_novo == "Selecione..." or equipamento_velho == "Selecione..."):
-                    st.error("⚠️ Selecione os equipamentos corretos para a troca.")
-                else:
-                    valor_calculado = calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, st.session_state.cpf_tecnico)
-                    
-                    caminhos_fotos_atendimento = []
-                    if fotos_arquivos:
-                        for foto in fotos_arquivos[:5]:
-                            try:
-                                timestamp = int(time.time())
-                                caminho = f"fotos/{timestamp}_{foto.name}"
-                                supabase.storage.from_("fotos_atendimentos").upload(caminho, foto.getvalue())
-                                caminhos_fotos_atendimento.append(caminho)
-                            except Exception as e:
-                                st.error(f"Erro ao subir foto {foto.name}: {e}")
-                    
-                    # Se habilitou a troca, executa as movimentações no estoque automaticamente
-                    if habilita_troca:
+            botao_enviar = st.form_submit_button("REGISTRAR ATENDIMENTO", use_container_width=True)
+
+        # --- BOTÃO E OPÇÕES DE TROCA FORA DO FORMULÁRIO (Exibem e atualizam na hora) ---
+        st.divider()
+        habilita_troca = st.checkbox("🔄 Realizar Troca de Equipamento neste Atendimento", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
+        
+        equipamento_velho = "Selecione..."
+        equipamento_novo = "Selecione..."
+        status_velho = "DEFEITO"
+        
+        if habilita_troca:
+            st.info("O equipamento **novo** sai do estoque para o cliente, e o **velho** entra no estoque.")
+            tc_e1, tc_e2 = st.columns(2)
+            with tc_e1:
+                equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="form_eq_velho")
+            with tc_e2:
+                equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="form_eq_novo")
+            
+            status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"], key="form_status_velho")
+
+        # --- PROCESSAMENTO DO ENVIO AO CLICAR NO BOTÃO DO FORMULÁRIO ---
+        if botao_enviar:
+            if not cliente or not endereco or not protocolo or not metragem_cabo:
+                st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
+            elif habilita_troca and (equipamento_novo == "Selecione..." or equipamento_velho == "Selecione..."):
+                st.error("⚠️ Selecione os equipamentos corretos para a troca.")
+            else:
+                valor_calculado = calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, st.session_state.cpf_tecnico)
+                
+                caminhos_fotos_atendimento = []
+                if fotos_arquivos:
+                    for foto in fotos_arquivos[:5]:
                         try:
-                            supabase.table("ESTOQUE").insert({
-                                "equipamento": equipamento_novo,
-                                "serial": "N/A",
-                                "status": f"INSTALADO - {cliente}",
-                                "localizacao": f"CLIENTE: {cliente}",
-                                "observacao": f"Saída por troca no atendimento (Prot: {protocolo})."
-                            }).execute()
-                            
-                            supabase.table("ESTOQUE").insert({
-                                "equipamento": equipamento_velho,
-                                "serial": "N/A",
-                                "status": status_velho,
-                                "localizacao": "ESTOQUE CENTRAL",
-                                "observacao": f"Retirado do cliente {cliente} (Prot: {protocolo})."
-                            }).execute()
-                            
-                            supabase.table("HISTORICO_ESTOQUE").insert({
-                                "tipo_movimentacao": "TROCA",
-                                "equipamento": f"Novo: {equipamento_novo} | Velho: {equipamento_velho}",
-                                "serial": "N/A",
-                                "responsavel": st.session_state.nome_tecnico,
-                                "detalhes": f"Atendimento/Cliente: {cliente} | Protocolo: {protocolo}"
-                            }).execute()
-                        except Exception as est_err:
-                            st.error(f"Erro ao movimentar o estoque na troca: {est_err}")
-                    
-                    if registrar_atendimento(
-                        data_execucao, 
-                        cliente, 
-                        endereco, 
-                        protocolo, 
-                        mercado, 
-                        tipo_servico, 
-                        observacao, 
-                        caminhos_fotos_atendimento, 
-                        st.session_state.nome_tecnico, 
-                        st.session_state.cpf_tecnico, 
-                        metragem_cabo,
-                        valor_calculado
-                    ):
-                        st.success("Atendimento e movimentações registrados com sucesso!")
+                            timestamp = int(time.time())
+                            caminho = f"fotos/{timestamp}_{foto.name}"
+                            supabase.storage.from_("fotos_atendimentos").upload(caminho, foto.getvalue())
+                            caminhos_fotos_atendimento.append(caminho)
+                        except Exception as e:
+                            st.error(f"Erro ao subir foto {foto.name}: {e}")
+                
+                if habilita_troca:
+                    try:
+                        supabase.table("ESTOQUE").insert({
+                            "equipamento": equipamento_novo,
+                            "serial": "1",
+                            "status": f"INSTALADO - {cliente}",
+                            "localizacao": f"CLIENTE: {cliente}",
+                            "observacao": f"Saída por troca no atendimento (Prot: {protocolo})."
+                        }).execute()
+                        
+                        supabase.table("ESTOQUE").insert({
+                            "equipamento": equipamento_velho,
+                            "serial": "1",
+                            "status": status_velho,
+                            "localizacao": "ESTOQUE CENTRAL",
+                            "observacao": f"Retirado do cliente {cliente} (Prot: {protocolo})."
+                        }).execute()
+                        
+                        supabase.table("HISTORICO_ESTOQUE").insert({
+                            "tipo_movimentacao": "TROCA",
+                            "equipamento": f"Novo: {equipamento_novo} | Velho: {equipamento_velho}",
+                            "serial": "1",
+                            "responsavel": st.session_state.nome_tecnico,
+                            "detalhes": f"Atendimento/Cliente: {cliente} | Protocolo: {protocolo}"
+                        }).execute()
+                    except Exception as est_err:
+                        st.error(f"Erro ao movimentar o estoque na troca: {est_err}")
+                
+                if registrar_atendimento(
+                    data_execucao, 
+                    cliente, 
+                    endereco, 
+                    protocolo, 
+                    mercado, 
+                    tipo_servico, 
+                    observacao, 
+                    caminhos_fotos_atendimento, 
+                    st.session_state.nome_tecnico, 
+                    st.session_state.cpf_tecnico, 
+                    metragem_cabo,
+                    valor_calculado
+                ):
+                    st.success("Atendimento e movimentações registrados com sucesso!")
             
     with aba2: 
         st.subheader("Lista de Atendimentos")
@@ -959,92 +961,7 @@ else:
         except Exception:
             pass
 
-        sub_aba1, sub_aba2, sub_aba3 = st.tabs(["➕ Entrada de Mercadoria", "🔄 Troca de Equipamento", "📋 Saldo e Histórico"])
-        
-        with sub_aba1:
-            st.markdown("### Registrar Entrada de Novos Itens / Equipamentos")
-            with st.form("form_entrada_estoque", clear_on_submit=True):
-                ec1, ec2 = st.columns(2)
-                with ec1:
-                    item_selecionado = st.selectbox("Nome do Equipamento / Material", opcoes_equipamentos_cadastrados)
-                    quantidade = st.number_input("Quantidade", min_value=1, value=1, step=1)
-                with ec2:
-                    origem_nota = st.text_input("Nota Fiscal / Fornecedor / Origem")
-                
-                obs_entrada = st.text_area("Observações da Entrada")
-                
-                if st.form_submit_button("REGISTRAR ENTRADA", use_container_width=True):
-                    if item_selecionado == "Selecione..." or not quantidade or quantidade < 1:
-                        st.error("⚠️ Selecione o equipamento e informe uma quantidade válida.")
-                    else:
-                        try:
-                            supabase.table("ESTOQUE").insert({
-                                "equipamento": item_selecionado,
-                                "serial": "N/A",
-                                "status": "DISPONIVEL",
-                                "localizacao": "ESTOQUE CENTRAL",
-                                "observacao": obs_entrada
-                            }).execute()
-                            
-                            supabase.table("HISTORICO_ESTOQUE").insert({
-                                "tipo_movimentacao": "ENTRADA",
-                                "equipamento": item_selecionado,
-                                "serial": "N/A",
-                                "responsavel": st.session_state.nome_tecnico,
-                                "detalhes": f"Entrada de {quantidade} un. Origem: {obs_entrada or 'N/A'}"
-                            }).execute()
-                            
-                            st.success("Entrada registrada com sucesso no estoque!")
-                        except Exception as e:
-                            st.error(f"Erro ao registrar entrada: {e}")
-        with sub_aba2:
-            st.markdown("### Registrar Troca de Equipamento (Cliente)")
-            st.info("O equipamento **novo** sai do estoque para o cliente, e o equipamento **velho** (defeituoso/retirado) entra no estoque.")
-            
-            with st.form("form_troca_equipamento", clear_on_submit=True):
-                tc1, tc2 = st.columns(2)
-                with tc1:
-                    cliente_troca = st.text_input("Nome do Cliente / Protocolo")
-                    equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="eq_novo")
-                with tc2:
-                    equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="eq_velho")
-                    status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"])
-                
-                motivo_troca = st.text_area("Motivo da Troca (ex: Queimado por raio, lentidão)")
-                
-                if st.form_submit_button("CONFIRMAR TROCA DE EQUIPAMENTOS", use_container_width=True):
-                    if not cliente_troca or equipamento_novo == "Selecione..." or equipamento_velho == "Selecione...":
-                        st.error("⚠️ Preencha os campos obrigatórios e selecione os equipamentos corretamente.")
-                    else:
-                        try:
-                            supabase.table("ESTOQUE").insert({
-                                "equipamento": equipamento_novo,
-                                "serial": "N/A",
-                                "status": f"INSTALADO - {cliente_troca}",
-                                "localizacao": f"CLIENTE: {cliente_troca}",
-                                "observacao": f"Saída por troca. Motivo: {motivo_troca}"
-                            }).execute()
-                            
-                            supabase.table("ESTOQUE").insert({
-                                "equipamento": equipamento_velho,
-                                "serial": "N/A",
-                                "status": status_velho,
-                                "localizacao": "ESTOQUE CENTRAL",
-                                "observacao": f"Retirado do cliente {cliente_troca}. Motivo: {motivo_troca}"
-                            }).execute()
-                            
-                            supabase.table("HISTORICO_ESTOQUE").insert({
-                                "tipo_movimentacao": "TROCA",
-                                "equipamento": f"Novo: {equipamento_novo} | Velho: {equipamento_velho}",
-                                "serial": "N/A",
-                                "responsavel": st.session_state.nome_tecnico,
-                                "detalhes": f"Cliente: {cliente_troca} | Motivo: {motivo_troca}"
-                            }).execute()
-                            
-                            st.success("Troca registrada com sucesso! Equipamento novo baixado e velho adicionado ao estoque.")
-                        except Exception as e:
-                            st.error(f"Erro ao processar troca: {e}")
-        with sub_aba3:
+        def renderizar_saldo_e_historico():
             st.markdown("### Saldo Atual do Estoque e Histórico")
             try:
                 res_estoque = supabase.table("ESTOQUE").select("*").execute()
@@ -1052,11 +969,9 @@ else:
                     st.write("#### 📊 Itens Cadastrados no Estoque")
                     df_est = pd.DataFrame(res_estoque.data)
                     
-                    # Renomeia a coluna 'serial' para 'qtd' visualmente se ela existir
                     if 'serial' in df_est.columns:
                         df_est = df_est.rename(columns={'serial': 'qtd'})
                     
-                    # Ocultar colunas indesejadas (id, created_at, etc.)
                     colunas_ocultar_est = ['id', 'created_at']
                     df_est_exibicao = df_est[[col for col in df_est.columns if col not in colunas_ocultar_est]]
                     
@@ -1070,15 +985,6 @@ else:
                     st.write("#### 📜 Histórico de Movimentações")
                     df_hist = pd.DataFrame(res_hist.data)
                     
-                    # Tratativa para criar colunas separadas de Entrada e Saída no Histórico
-                    if 'serial' in df_hist.columns:
-                        df_hist['Entrada'] = df_hist['serial'].apply(lambda x: x.split('/')[1].strip() if isinstance(x, str) and '/' in x else ('1' if 'Entrada' in str(x) else '0'))
-                        df_hist['Saída'] = df_hist['serial'].apply(lambda x: x.split('/')[0].strip() if isinstance(x, str) and '/' in x else '0')
-                    else:
-                        df_hist['Entrada'] = '0'
-                        df_hist['Saída'] = '0'
-
-                    # Reorganizar ou ocultar colunas técnicas do histórico se necessário
                     colunas_ocultar_hist = ['id', 'created_at', 'serial']
                     df_hist_exibicao = df_hist[[col for col in df_hist.columns if col not in colunas_ocultar_hist]]
                     
@@ -1088,11 +994,103 @@ else:
             except Exception as e:
                 st.error(f"Erro ao carregar dados de estoque: {e}")
 
+        if st.session_state.perfil == "Administrador":
+            sub_aba1, sub_aba2, sub_aba3 = st.tabs(["➕ Entrada de Mercadoria", "🔄 Troca de Equipamento", "📋 Saldo e Histórico"])
+            
+            with sub_aba1:
+                st.markdown("### Registrar Entrada de Novos Itens / Equipamentos")
+                with st.form("form_entrada_estoque", clear_on_submit=True):
+                    ec1, ec2 = st.columns(2)
+                    with ec1:
+                        item_selecionado = st.selectbox("Nome do Equipamento / Material", opcoes_equipamentos_cadastrados)
+                        quantidade = st.number_input("Quantidade", min_value=1, value=1, step=1)
+                    with ec2:
+                        origem_nota = st.text_input("Nota Fiscal / Fornecedor / Origem")
+                    
+                    obs_entrada = st.text_area("Observações da Entrada")
+                    
+                    if st.form_submit_button("REGISTRAR ENTRADA", use_container_width=True):
+                        if item_selecionado == "Selecione..." or not quantidade or quantidade < 1:
+                            st.error("⚠️ Selecione o equipamento e informe uma quantidade válida.")
+                        else:
+                            try:
+                                supabase.table("ESTOQUE").insert({
+                                    "equipamento": item_selecionado,
+                                    "serial": str(quantidade),
+                                    "status": "DISPONIVEL",
+                                    "localizacao": "ESTOQUE CENTRAL",
+                                    "observacao": obs_entrada
+                                }).execute()
+                                
+                                supabase.table("HISTORICO_ESTOQUE").insert({
+                                    "tipo_movimentacao": "ENTRADA",
+                                    "equipamento": item_selecionado,
+                                    "serial": str(quantidade),
+                                    "responsavel": st.session_state.nome_tecnico,
+                                    "detalhes": f"Entrada de {quantidade} un. Origem: {obs_entrada or 'N/A'}"
+                                }).execute()
+                                
+                                st.success("Entrada registrada com sucesso no estoque!")
+                            except Exception as e:
+                                st.error(f"Erro ao registrar entrada: {e}")
+
+            with sub_aba2:
+                st.markdown("### Registrar Troca de Equipamento (Cliente)")
+                st.info("O equipamento **novo** sai do estoque para o cliente, e o equipamento **velho** (defeituoso/retirado) entra no estoque.")
+                
+                with st.form("form_troca_equipamento", clear_on_submit=True):
+                    tc1, tc2 = st.columns(2)
+                    with tc1:
+                        cliente_troca = st.text_input("Nome do Cliente / Protocolo")
+                        equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="eq_novo")
+                    with tc2:
+                        equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="eq_velho")
+                        status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"])
+                    
+                    motivo_troca = st.text_area("Motivo da Troca (ex: Queimado por raio, lentidão)")
+                    
+                    if st.form_submit_button("CONFIRMAR TROCA DE EQUIPAMENTOS", use_container_width=True):
+                        if not cliente_troca or equipamento_novo == "Selecione..." or equipamento_velho == "Selecione...":
+                            st.error("⚠️ Preencha os campos obrigatórios e selecione os equipamentos corretamente.")
+                        else:
+                            try:
+                                supabase.table("ESTOQUE").insert({
+                                    "equipamento": equipamento_novo,
+                                    "serial": "1",
+                                    "status": f"INSTALADO - {cliente_troca}",
+                                    "localizacao": f"CLIENTE: {cliente_troca}",
+                                    "observacao": f"Saída por troca. Motivo: {motivo_troca}"
+                                }).execute()
+                                
+                                supabase.table("ESTOQUE").insert({
+                                    "equipamento": equipamento_velho,
+                                    "serial": "1",
+                                    "status": status_velho,
+                                    "localizacao": "ESTOQUE CENTRAL",
+                                    "observacao": f"Retirado do cliente {cliente_troca}. Motivo: {motivo_troca}"
+                                }).execute()
+                                
+                                supabase.table("HISTORICO_ESTOQUE").insert({
+                                    "tipo_movimentacao": "TROCA",
+                                    "equipamento": f"Novo: {equipamento_novo} | Velho: {equipamento_velho}",
+                                    "serial": "1",
+                                    "responsavel": st.session_state.nome_tecnico,
+                                    "detalhes": f"Cliente: {cliente_troca} | Motivo: {motivo_troca}"
+                                }).execute()
+                                
+                                st.success("Troca registrada com sucesso! Equipamento novo baixado e velho adicionado ao estoque.")
+                            except Exception as e:
+                                st.error(f"Erro ao processar troca: {e}")
+
+            with sub_aba3:
+                renderizar_saldo_e_historico()
+        else:
+            renderizar_saldo_e_historico()
+
     if aba5 is not None: 
         with aba5:
             st.subheader("⚙️ PAINEL ADMINISTRATIVO")
             
-            # Adicionado "📋 Cadastro de Equipamento" nas opções do admin
             opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "Cadastrar Novo Usuário", "💰 Tabela LPU", "📦 Tabela LPU DELIVERY", "📋 Cadastro de Equipamento"], horizontal=True)
             senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
 
