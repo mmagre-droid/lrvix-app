@@ -60,24 +60,62 @@ if "precisa_trocar_senha" not in st.session_state:
 
 # --- ESTILIZAÇÃO CSS (OCULTA CABEÇALHO, MENU, ÍCONES FLUTUANTES E GITHUB) ---
 st.markdown("""
-    <link rel="manifest" href="manifest.json">
-    <script>
-        // Força o parâmetro embed=true na URL para ocultar os ícones flutuantes do Streamlit
-        if (!window.location.search.includes('embed=true')) {
-            const separator = window.location.search === '' ? '?' : '&';
-            window.history.replaceState(null, '', window.location.href + separator + 'embed=true');
-        }
+    <style>
 
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js').then(function(registration) {
-                    console.log('ServiceWorker registrado com sucesso: ', registration.scope);
-                }, function(err) {
-                    console.log('Falha ao registrar o ServiceWorker: ', err);
-                });
-            });
+    /* ⬇️ BLOQUEIA O PULL-TO-REFRESH NO CELULAR ⬇️ */
+        body, html {
+            overscroll-behavior-y: none;
         }
-    </script>
+        
+        /* Oculta completamente o cabeçalho e rodapé padrão do Streamlit */
+        header {visibility: hidden !important; display: none !important;}
+        #MainMenu {visibility: hidden !important; display: none !important;}
+        footer {visibility: hidden !important; display: none !important;}
+        
+        /* Oculta botões e ícones flutuantes do Streamlit (Deploy, Status, ViewerBadge) */
+        .stAppDeployButton,
+        [data-testid="stStatusWidget"],
+        div[data-testid="stToolbar"],
+        div[class*="stToolbar"],
+        div[class*="viewerBadge"],
+        button[kind="header"],
+        [class*="profileContainer"],
+        [class*="styles-module_container"] {
+            visibility: hidden !important;
+            display: none !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+        
+        /* Oculta qualquer elemento flutuante fixo no canto inferior/superior direito */
+        div[style*="fixed"], div[style*="absolute"] {
+            /* Garante que elementos injetados na flutuação sumam se necessário */
+        }
+        
+        /* Ajuste de espaçamento geral */
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            max-width: 1200px;
+        }
+        
+        /* Estilo para cartões e blocos */
+        div.stButton > button {
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        
+        /* Ajuste de abas */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 45px;
+            white-space: pre-wrap;
+            border-radius: 4px 4px 0px 0px;
+            font-weight: 600;
+        }
+    </style>
 """, unsafe_allow_html=True)
 
 # --- CONFIGURAÇÃO ---
@@ -113,16 +151,30 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
         except ValueError:
             metragem = 0.0
             
+        # 1. TENTA BUSCAR PRIMEIRO PELO NOME EXATO DO SERVIÇO E METRAGEM COMPATÍVEL
         for item in res_lpu.data:
-            min_m = item.get("min_metragem")
-            max_m = item.get("max_metragem")
-            
-            if min_m is not None and max_m is not None:
-                if float(min_m) <= metragem <= float(max_m):
+            nome_servico = str(item.get("servico", "")).strip().lower()
+            if nome_servico == servico_lower:
+                min_m = item.get("min_metragem")
+                max_m = item.get("max_metragem")
+                
+                if min_m is not None and max_m is not None:
+                    if float(min_m) <= metragem <= float(max_m):
+                        return round(float(item.get("valor", 0.0)), 2)
+                else:
                     return round(float(item.get("valor", 0.0)), 2)
-        
+
+        # 2. SE NÃO ACHOU EXATO POR NOME, TENTA A REGRA DE FAIXA GERAL OU EXCEDENTE
         faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem") is not None]
         if faixas_com_metragem and metragem > 0:
+            for item in faixas_com_metragem:
+                min_m = float(item.get("min_metragem"))
+                max_m = float(item.get("max_metragem"))
+                nome_servico = str(item.get("servico", "")).strip().lower()
+                
+                if min_m <= metragem <= max_m and (servico_lower in nome_servico or nome_servico in servico_lower):
+                    return round(float(item.get("valor", 0.0)), 2)
+
             maior_faixa = max(faixas_com_metragem, key=lambda x: float(x.get("max_metragem", 0)))
             teto_max = float(maior_faixa.get("max_metragem", 0))
             
@@ -142,11 +194,6 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                 
                 blocos_extras = (excedente // 100.0) + (1 if excedente % 100.0 > 0 else 0)
                 return round(valor_base + (blocos_extras * valor_adicional_bloco), 2)
-                    
-        for item in res_lpu.data:
-            nome_servico = str(item.get("servico", "")).strip().lower()
-            if nome_servico == servico_lower:
-                return round(float(item.get("valor", 0.0)), 2)
                 
         return 0.0
     except Exception as e:
