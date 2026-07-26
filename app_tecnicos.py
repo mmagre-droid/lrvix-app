@@ -560,7 +560,7 @@ else:
             pass
 
         # --- OPÇÕES DE TROCA LOGO ABAIXO DO TÍTULO ---
-        habilita_troca = st.checkbox("🔄 Realizar Troca de Equipamento neste Atendimento", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
+        habilita_troca = st.checkbox("🔄 TROCA DE EQUIPAMENTO", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
         
         equipamento_velho = "Selecione..."
         equipamento_novo = "Selecione..."
