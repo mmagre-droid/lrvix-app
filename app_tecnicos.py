@@ -550,6 +550,34 @@ else:
     with aba1:
         st.subheader("Novo Lançamento Operacional")
         
+        # --- BUSCAR LISTA DE EQUIPAMENTOS CADASTRADOS ---
+        opcoes_equipamentos_cadastrados = ["Selecione..."]
+        try:
+            res_cad = supabase.table("CADASTRO_EQUIPAMENTOS").select("codigo, descricao").execute()
+            if res_cad.data:
+                opcoes_equipamentos_cadastrados += [f"{item['codigo']} - {item['descricao']}" for item in res_cad.data]
+        except Exception:
+            pass
+
+        # --- OPÇÕES DE TROCA LOGO ABAIXO DO TÍTULO ---
+        habilita_troca = st.checkbox("🔄 Realizar Troca de Equipamento neste Atendimento", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
+        
+        equipamento_velho = "Selecione..."
+        equipamento_novo = "Selecione..."
+        status_velho = "DEFEITO"
+        
+        if habilita_troca:
+            st.info("O equipamento **novo** sai do estoque para o cliente, e o **velho** entra no estoque.")
+            tc_e1, tc_e2 = st.columns(2)
+            with tc_e1:
+                equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="form_eq_velho")
+            with tc_e2:
+                equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="form_eq_novo")
+            
+            status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"], key="form_status_velho")
+
+        st.divider()
+        
         tabela_lpu_alvo = "LPU"
         lista_opcoes_servicos = ["INTERNO", "EXTERNO", "IMPRODUTIVO"]
         
@@ -568,15 +596,6 @@ else:
         except Exception as e:
             print(f"Erro ao carregar serviços da LPU: {e}")
 
-        # --- BUSCAR LISTA DE EQUIPAMENTOS CADASTRADOS ---
-        opcoes_equipamentos_cadastrados = ["Selecione..."]
-        try:
-            res_cad = supabase.table("CADASTRO_EQUIPAMENTOS").select("codigo, descricao").execute()
-            if res_cad.data:
-                opcoes_equipamentos_cadastrados += [f"{item['codigo']} - {item['descricao']}" for item in res_cad.data]
-        except Exception:
-            pass
-
         with st.form("form_atendimento", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
@@ -593,24 +612,6 @@ else:
             fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
             
             botao_enviar = st.form_submit_button("REGISTRAR ATENDIMENTO", use_container_width=True)
-
-        # --- BOTÃO E OPÇÕES DE TROCA FORA DO FORMULÁRIO (Exibem e atualizam na hora) ---
-        st.divider()
-        habilita_troca = st.checkbox("🔄 Realizar Troca de Equipamento neste Atendimento", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
-        
-        equipamento_velho = "Selecione..."
-        equipamento_novo = "Selecione..."
-        status_velho = "DEFEITO"
-        
-        if habilita_troca:
-            st.info("O equipamento **novo** sai do estoque para o cliente, e o **velho** entra no estoque.")
-            tc_e1, tc_e2 = st.columns(2)
-            with tc_e1:
-                equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="form_eq_velho")
-            with tc_e2:
-                equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="form_eq_novo")
-            
-            status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"], key="form_status_velho")
 
         # --- PROCESSAMENTO DO ENVIO AO CLICAR NO BOTÃO DO FORMULÁRIO ---
         if botao_enviar:
