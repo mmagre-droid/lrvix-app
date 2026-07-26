@@ -539,10 +539,7 @@ else:
         aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "📦 ESTOQUE"])
         aba5 = None
 
-    Python
-# --- Na aba 1 (Formulário), coloque o checkbox e as opções de troca FORA do formulário principal para que o Streamlit recarregue a tela ao marcar e exiba os campos ---
-
-    with aba1:
+   with aba1:
         st.subheader("Novo Lançamento Operacional")
         
         tabela_lpu_alvo = "LPU"
