@@ -560,6 +560,15 @@ else:
         except Exception as e:
             print(f"Erro ao carregar serviços da LPU: {e}")
 
+        # --- BUSCAR LISTA DE EQUIPAMENTOS CADASTRADOS ---
+        opcoes_equipamentos_cadastrados = ["Selecione..."]
+        try:
+            res_cad = supabase.table("CADASTRO_EQUIPAMENTOS").select("codigo, descricao").execute()
+            if res_cad.data:
+                opcoes_equipamentos_cadastrados += [f"{item['codigo']} - {item['descricao']}" for item in res_cad.data]
+        except Exception:
+            pass
+
         with st.form("form_atendimento", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
@@ -573,12 +582,34 @@ else:
                 tipo_servico = st.selectbox("TIPO DE SERVIÇO", lista_opcoes_servicos)
             
             observacao = st.text_area("OBSERVAÇÃO")
+            
+            # --- BOTÃO / CHECKBOX DE TROCA DE EQUIPAMENTO ---
+            st.divider()
+            habilita_troca = st.checkbox("🔄 Realizar Troca de Equipamento neste Atendimento")
+            
+            equipamento_velho = "Selecione..."
+            equipamento_novo = "Selecione..."
+            status_velho = "DEFEITO"
+            
+            if habilita_troca:
+                st.info("O equipamento **novo** sai do estoque para o cliente, e o equipamento **velho** (defeituoso/retirado) entra no estoque.")
+                tc1, tc2 = st.columns(2)
+                with tc1:
+                    equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="form_eq_velho")
+                with tc2:
+                    equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="form_eq_novo")
+                
+                status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"], key="form_status_velho")
+            
+            st.divider()
             fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
             
             st.write("")
             if st.form_submit_button("REGISTRAR ATENDIMENTO", use_container_width=True):
                 if not cliente or not endereco or not protocolo or not metragem_cabo:
                     st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
+                elif habilita_troca and (equipamento_novo == "Selecione..." or equipamento_velho == "Selecione..."):
+                    st.error("⚠️ Selecione os equipamentos corretos para a troca.")
                 else:
                     valor_calculado = calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, st.session_state.cpf_tecnico)
                     
@@ -592,6 +623,35 @@ else:
                                 caminhos_fotos_atendimento.append(caminho)
                             except Exception as e:
                                 st.error(f"Erro ao subir foto {foto.name}: {e}")
+                    
+                    # Se habilitou a troca, executa as movimentações no estoque automaticamente
+                    if habilita_troca:
+                        try:
+                            supabase.table("ESTOQUE").insert({
+                                "equipamento": equipamento_novo,
+                                "serial": "N/A",
+                                "status": f"INSTALADO - {cliente}",
+                                "localizacao": f"CLIENTE: {cliente}",
+                                "observacao": f"Saída por troca no atendimento (Prot: {protocolo})."
+                            }).execute()
+                            
+                            supabase.table("ESTOQUE").insert({
+                                "equipamento": equipamento_velho,
+                                "serial": "N/A",
+                                "status": status_velho,
+                                "localizacao": "ESTOQUE CENTRAL",
+                                "observacao": f"Retirado do cliente {cliente} (Prot: {protocolo})."
+                            }).execute()
+                            
+                            supabase.table("HISTORICO_ESTOQUE").insert({
+                                "tipo_movimentacao": "TROCA",
+                                "equipamento": f"Novo: {equipamento_novo} | Velho: {equipamento_velho}",
+                                "serial": "N/A",
+                                "responsavel": st.session_state.nome_tecnico,
+                                "detalhes": f"Atendimento/Cliente: {cliente} | Protocolo: {protocolo}"
+                            }).execute()
+                        except Exception as est_err:
+                            st.error(f"Erro ao movimentar o estoque na troca: {est_err}")
                     
                     if registrar_atendimento(
                         data_execucao, 
@@ -607,7 +667,7 @@ else:
                         metragem_cabo,
                         valor_calculado
                     ):
-                        st.success("Atendimento registrado com sucesso!")
+                        st.success("Atendimento e movimentações registrados com sucesso!")
             
     with aba2: 
         st.subheader("Lista de Atendimentos")
