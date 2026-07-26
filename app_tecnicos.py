@@ -539,7 +539,7 @@ else:
         aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "📦 ESTOQUE"])
         aba5 = None
 
-    with aba1:
+with aba1:
     st.subheader("Novo Lançamento Operacional")
     
     tabela_lpu_alvo = "LPU"
