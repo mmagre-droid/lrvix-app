@@ -72,6 +72,12 @@ st.markdown("""
         #MainMenu {visibility: hidden !important; display: none !important;}
         footer {visibility: hidden !important; display: none !important;}
         
+        /* Oculta o botão de deploy flutuante do Streamlit */
+        .stAppDeployButton {
+            visibility: hidden !important;
+            display: none !important;
+        }
+        
         /* Oculta seletores antigos e novos de widgets flutuantes e ferramentas */
         [data-testid="stStatusWidget"] {
             visibility: hidden !important;
