@@ -1052,6 +1052,10 @@ else:
                     st.write("#### 📊 Itens Cadastrados no Estoque")
                     df_est = pd.DataFrame(res_estoque.data)
                     
+                    # Renomeia a coluna 'serial' para 'qtd' visualmente se ela existir
+                    if 'serial' in df_est.columns:
+                        df_est = df_est.rename(columns={'serial': 'qtd'})
+                    
                     # Ocultar colunas indesejadas (id, created_at, etc.)
                     colunas_ocultar_est = ['id', 'created_at']
                     df_est_exibicao = df_est[[col for col in df_est.columns if col not in colunas_ocultar_est]]
