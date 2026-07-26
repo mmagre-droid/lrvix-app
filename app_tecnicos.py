@@ -586,7 +586,7 @@ else:
             
             botao_enviar = st.form_submit_button("REGISTRAR ATENDIMENTO", use_container_width=True)
 
-        # --- CHECKBOX E CAMPOS DE TROCA FORA DO FORMULÁRIO (Atualizam na hora ao clicar) ---
+        # --- BOTÃO E OPÇÕES DE TROCA FORA DO FORMULÁRIO (Exibem e atualizam na hora) ---
         st.divider()
         habilita_troca = st.checkbox("🔄 Realizar Troca de Equipamento neste Atendimento", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
         
@@ -604,7 +604,7 @@ else:
             
             status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"], key="form_status_velho")
 
-        # --- PROCESSAMENTO DO ENVIO ---
+        # --- PROCESSAMENTO DO ENVIO AO CLICAR NO BOTÃO DO FORMULÁRIO ---
         if botao_enviar:
             if not cliente or not endereco or not protocolo or not metragem_cabo:
                 st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
