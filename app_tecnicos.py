@@ -60,62 +60,24 @@ if "precisa_trocar_senha" not in st.session_state:
 
 # --- ESTILIZAÇÃO CSS (OCULTA CABEÇALHO, MENU, ÍCONES FLUTUANTES E GITHUB) ---
 st.markdown("""
-    <style>
+    <link rel="manifest" href="manifest.json">
+    <script>
+        // Força o parâmetro embed=true na URL para ocultar os ícones flutuantes do Streamlit
+        if (!window.location.search.includes('embed=true')) {
+            const separator = window.location.search === '' ? '?' : '&';
+            window.history.replaceState(null, '', window.location.href + separator + 'embed=true');
+        }
 
-    /* ⬇️ BLOQUEIA O PULL-TO-REFRESH NO CELULAR ⬇️ */
-        body, html {
-            overscroll-behavior-y: none;
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js').then(function(registration) {
+                    console.log('ServiceWorker registrado com sucesso: ', registration.scope);
+                }, function(err) {
+                    console.log('Falha ao registrar o ServiceWorker: ', err);
+                });
+            });
         }
-        
-        /* Oculta completamente o cabeçalho e rodapé padrão do Streamlit */
-        header {visibility: hidden !important; display: none !important;}
-        #MainMenu {visibility: hidden !important; display: none !important;}
-        footer {visibility: hidden !important; display: none !important;}
-        
-        /* Oculta botões e ícones flutuantes do Streamlit (Deploy, Status, ViewerBadge) */
-        .stAppDeployButton,
-        [data-testid="stStatusWidget"],
-        div[data-testid="stToolbar"],
-        div[class*="stToolbar"],
-        div[class*="viewerBadge"],
-        button[kind="header"],
-        [class*="profileContainer"],
-        [class*="styles-module_container"] {
-            visibility: hidden !important;
-            display: none !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-        }
-        
-        /* Oculta qualquer elemento flutuante fixo no canto inferior/superior direito */
-        div[style*="fixed"], div[style*="absolute"] {
-            /* Garante que elementos injetados na flutuação sumam se necessário */
-        }
-        
-        /* Ajuste de espaçamento geral */
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-            max-width: 1200px;
-        }
-        
-        /* Estilo para cartões e blocos */
-        div.stButton > button {
-            border-radius: 6px;
-            font-weight: 500;
-        }
-        
-        /* Ajuste de abas */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-        }
-        .stTabs [data-baseweb="tab"] {
-            height: 45px;
-            white-space: pre-wrap;
-            border-radius: 4px 4px 0px 0px;
-            font-weight: 600;
-        }
-    </style>
+    </script>
 """, unsafe_allow_html=True)
 
 # --- CONFIGURAÇÃO ---
