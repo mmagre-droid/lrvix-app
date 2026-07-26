@@ -745,7 +745,7 @@ else:
                 soma_valor_produtivos = df_produtivos['valor_total'].sum()
                 
                 ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
-                total_geral = soma_valor_produtivos  # CORRIGIDO AQUI PARA EVITAR SOMA DUPLICADA/ZEROS A MAIS
+                total_geral = df_calc['valor_total'].sum()
                 
                 tabela_html = f"""
                 <div style="overflow-x:auto;">
