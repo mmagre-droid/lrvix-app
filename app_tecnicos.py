@@ -692,6 +692,8 @@ else:
                 col_f1, col_f2 = st.columns([2, 2])
                 with col_f1:
                     tecnico_selecionado = st.selectbox("Filtrar por Técnico:", list(opcoes_tec.keys()))
+                with col_f2:
+                    periodo_datas = st.date_input("Filtrar por Período (Data de Execução):", value=[])
                 
                 query = supabase.table("ATENDIMENTO").select("*")
                 
@@ -703,6 +705,9 @@ else:
                 st.error(f"Erro ao carregar lista de técnicos para o filtro: {e}")
                 query = supabase.table("ATENDIMENTO").select("*")
         else:
+            col_f1, col_f2 = st.columns([2, 2])
+            with col_f2:
+                periodo_datas = st.date_input("Filtrar por Período (Data de Execução):", value=[])
             query = supabase.table("ATENDIMENTO").select("*").eq("cpf_tecnico", st.session_state.cpf_tecnico)
         
         atendimentos = query.execute()
@@ -711,7 +716,21 @@ else:
             df = pd.DataFrame(atendimentos.data)
             
             if 'data_execucao' in df.columns:
-                df['data_execucao'] = pd.to_datetime(df['data_execucao'], errors='coerce').dt.strftime('%d/%m/%Y')
+                df['data_execucao_dt'] = pd.to_datetime(df['data_execucao'], errors='coerce')
+                
+                if 'periodo_datas' in locals() and isinstance(periodo_datas, tuple) and len(periodo_datas) == 2:
+                    data_inicio, data_fim = periodo_datas
+                    if data_inicio:
+                        df = df[df['data_execucao_dt'].dt.date >= data_inicio]
+                    if data_fim:
+                        df = df[df['data_execucao_dt'].dt.date <= data_fim]
+                elif 'periodo_datas' in locals() and isinstance(periodo_datas, tuple) and len(periodo_datas) == 1 and periodo_datas[0]:
+                    data_unica = periodo_datas[0]
+                    df = df[df['data_execucao_dt'].dt.date == data_unica]
+
+                df['data_execucao'] = df['data_execucao_dt'].dt.strftime('%d/%m/%Y')
+                if 'data_execucao_dt' in df.columns:
+                    df = df.drop(columns=['data_execucao_dt'])
             
             colunas_para_ocultar = ['id', 'created_at', 'cpf_tecnico']
             
@@ -729,7 +748,7 @@ else:
             st.markdown("### 📊 Indicadores e Projeção")
             
             try:
-                df_calc = pd.DataFrame(atendimentos.data)
+                df_calc = df.copy()
                 dias_trabalhados = df_calc['data_execucao'].nunique() if 'data_execucao' in df_calc.columns else 0
                 df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
                 
@@ -740,7 +759,7 @@ else:
                 total_servicos_produtivos = qtd_interno + qtd_externo
                 media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
                 
-                df_calc['valor_total'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
+                df_calc['valor_total'] = pd.to_numeric(df_calc['valor_total'].astype(str).str.replace('R$', '', regex=True).str.replace('.', '', regex=True).str.replace(',', '.', regex=True), errors='coerce').fillna(0.0)
                 df_produtivos = df_calc[df_calc['tipo_servico_upper'].isin(['INTERNO', 'EXTERNO'])]
                 soma_valor_produtivos = df_produtivos['valor_total'].sum()
                 
