@@ -72,32 +72,24 @@ st.markdown("""
         #MainMenu {visibility: hidden !important; display: none !important;}
         footer {visibility: hidden !important; display: none !important;}
         
-        /* Oculta o botão de deploy flutuante do Streamlit */
-        .stAppDeployButton {
+        /* Oculta botões e ícones flutuantes do Streamlit (Deploy, Status, ViewerBadge) */
+        .stAppDeployButton,
+        [data-testid="stStatusWidget"],
+        div[data-testid="stToolbar"],
+        div[class*="stToolbar"],
+        div[class*="viewerBadge"],
+        button[kind="header"],
+        [class*="profileContainer"],
+        [class*="styles-module_container"] {
             visibility: hidden !important;
             display: none !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
         }
         
-        /* Oculta seletores antigos e novos de widgets flutuantes e ferramentas */
-        [data-testid="stStatusWidget"] {
-            visibility: hidden !important;
-            display: none !important;
-        }
-        div[data-testid="stToolbar"] {
-            visibility: hidden !important;
-            display: none !important;
-        }
-        div[class*="stToolbar"] {
-            visibility: hidden !important;
-            display: none !important;
-        }
-        div[class*="viewerBadge"] {
-            visibility: hidden !important;
-            display: none !important;
-        }
-        button[kind="header"] {
-            visibility: hidden !important;
-            display: none !important;
+        /* Oculta qualquer elemento flutuante fixo no canto inferior/superior direito */
+        div[style*="fixed"], div[style*="absolute"] {
+            /* Garante que elementos injetados na flutuação sumam se necessário */
         }
         
         /* Ajuste de espaçamento geral */
