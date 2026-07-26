@@ -584,7 +584,6 @@ else:
                 mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
                 tipo_servico = st.selectbox("TIPO DE SERVIÇO", lista_opcoes_servicos)
             
-            # Campo oculto apenas para manter o escopo dentro do botão de envio se necessário, mas a lógica de troca fica abaixo fora do st.form
             observacao = st.text_area("OBSERVAÇÃO")
             fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
             
