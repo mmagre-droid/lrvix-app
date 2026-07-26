@@ -1143,13 +1143,13 @@ else:
                             
                         config_colunas_tec = {
                             "id": None,
-                            "senha": None,
                             "created_at": None,
                             "primeiro_acesso": None,
                             "nome": st.column_config.TextColumn("Nome", required=True),
                             "cpf": st.column_config.TextColumn("CPF", required=True),
                             "email": st.column_config.TextColumn("E-mail"),
                             "telefone": st.column_config.TextColumn("Telefone"),
+                            "senha": st.column_config.TextColumn("Senha"),
                             "ativo": st.column_config.CheckboxColumn("Ativo"),
                             "perfil": st.column_config.SelectboxColumn("Perfil", options=["Técnico", "Administrador"]),
                             "lpu_atribuida": st.column_config.SelectboxColumn("LPU Atribuída", options=["LPU Padrão", "DELIVERY"], required=True)
@@ -1159,7 +1159,7 @@ else:
                             df_tecnicos, 
                             use_container_width=True,
                             column_config=config_colunas_tec,
-                            disabled=["id", "senha", "created_at", "primeiro_acesso"]
+                            disabled=["id", "created_at", "primeiro_acesso"]
                         )
 
                         if st.button("SALVAR PERFIS", use_container_width=True):
@@ -1173,6 +1173,7 @@ else:
                                     "cpf": row["cpf"],
                                     "email": row["email"],
                                     "telefone": row["telefone"],
+                                    "senha": row["senha"],
                                     "ativo": row["ativo"],
                                     "perfil": row["perfil"],
                                     "lpu_atribuida": lpu_val
