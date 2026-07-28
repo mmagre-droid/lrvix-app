@@ -144,37 +144,63 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
         if "não autorizado" in obs or "nao autorizado" in obs:
             return 0.0
             
-        servico_upper = str(tipo_servico).strip().upper()
+        servico_lower = str(tipo_servico).strip().lower()
         
         try:
             metragem = float(metragem_cabo) if metragem_cabo else 0.0
         except ValueError:
             metragem = 0.0
+            
+        # Tratamento especial para FDS, Improdutivo e Interno baseado na regra do Excel
+        servico_upper = str(tipo_servico).strip().upper()
+        if servico_upper == "FDS":
+            for item in res_lpu.data:
+                if str(item.get("servico", "")).strip().upper() == "FDS":
+                    return round(float(item.get("valor", 0.0)), 2)
+        elif servico_upper == "IMPRODUTIVO":
+            for item in res_lpu.data:
+                if str(item.get("servico", "")).strip().upper() == "IMPRODUTIVO":
+                    return round(float(item.get("valor", 0.0)), 2)
+        elif servico_upper == "INTERNO":
+            for item in res_lpu.data:
+                if str(item.get("servico", "")).strip().upper() == "INTERNO":
+                    return round(float(item.get("valor", 0.0)), 2)
 
-        # EQUIVALENTE AO EXCEL: IF(L2="fds", ...) / IF(L2="Improdutivo", ...) / IF(L2="Interno", ...)
+        # Regra para Externo ou Metragem Numérica (0 até <150 ou conforme faixa da tabela)
         for item in res_lpu.data:
-            nome_servico = str(item.get("servico", "")).strip().upper()
             min_m = item.get("min_metragem")
             max_m = item.get("max_metragem")
             
-            # Se for serviço fixo sem faixa de metragem (Interno, Improdutivo, FDS, etc.)
-            if nome_servico == servico_upper and (min_m is None and max_m is None):
-                return round(float(item.get("valor", 0.0)), 2)
+            if min_m is not None and max_m is not None:
+                if float(min_m) <= metragem <= float(max_m):
+                    nome_servico = str(item.get("servico", "")).strip().lower()
+                    if servico_lower in nome_servico or nome_servico in servico_lower or servico_upper in ["EXTERNO"]:
+                        return round(float(item.get("valor", 0.0)), 2)
 
-        # EQUIVALENTE AO EXCEL: OR(L2="Externo", ...) com busca de faixa de metragem (Mínimo e Máximo)
+        # 1. TENTA BUSCAR PRIMEIRO PELO NOME EXATO DO SERVIÇO E METRAGEM COMPATÍVEL
+        for item in res_lpu.data:
+            nome_servico = str(item.get("servico", "")).strip().lower()
+            if nome_servico == servico_lower:
+                min_m = item.get("min_metragem")
+                max_m = item.get("max_metragem")
+                
+                if min_m is not None and max_m is not None:
+                    if float(min_m) <= metragem <= float(max_m):
+                        return round(float(item.get("valor", 0.0)), 2)
+                else:
+                    return round(float(item.get("valor", 0.0)), 2)
+
+        # 2. SE NÃO ACHO EXATO POR NOME, TENTA A REGRA DE FAIXA GERAL OU EXCEDENTE
         faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem") is not None]
-        
-        if faixas_com_metragem:
+        if faixas_com_metragem and metragem > 0:
             for item in faixas_com_metragem:
                 min_m = float(item.get("min_metragem"))
                 max_m = float(item.get("max_metragem"))
-                nome_servico = str(item.get("servico", "")).strip().upper()
+                nome_servico = str(item.get("servico", "")).strip().lower()
                 
-                # Valida se o serviço é compatível (ex: Externo) e se a metragem está dentro da faixa cadastrada
-                if (servico_upper in nome_servico or nome_servico in servico_upper or "EXTERNO" in servico_upper) and (min_m <= metragem <= max_m):
+                if min_m <= metragem <= max_m and (servico_lower in nome_servico or nome_servico in servico_lower):
                     return round(float(item.get("valor", 0.0)), 2)
 
-            # Se a metragem ultrapassar a maior faixa cadastrada, calcula o excedente (Blocos adicionais)
             maior_faixa = max(faixas_com_metragem, key=lambda x: float(x.get("max_metragem", 0)))
             teto_max = float(maior_faixa.get("max_metragem", 0))
             
@@ -197,9 +223,9 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                 
         return 0.0
     except Exception as e:
-        print(f"Erro ao calcular LPU por fórmula: {e}")
+        print(f"Erro ao calcular LPU por faixa: {e}")
         return 0.0
-        
+
 def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico, metragem_cabo, valor_total):
     try:
         supabase.table("ATENDIMENTO").insert({
