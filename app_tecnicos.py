@@ -144,42 +144,35 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
         if "não autorizado" in obs or "nao autorizado" in obs:
             return 0.0
             
-        servico_lower = str(tipo_servico).strip().lower()
+        servico_upper = str(tipo_servico).strip().upper()
         
         try:
             metragem = float(metragem_cabo) if metragem_cabo else 0.0
         except ValueError:
             metragem = 0.0
-            
-        # 1. PERCORRE TODOS OS ITENS DA LPU BUSCANDO O SERVIÇO CORRESPONDENTE
-        for item in res_lpu.data:
-            nome_servico = str(item.get("servico", "")).strip().lower()
-            
-            # Verifica se o nome do serviço bate (exato ou contido)
-            if nome_servico == servico_lower or servico_lower in nome_servico or nome_servico in servico_lower:
-                min_m = item.get("min_metragem")
-                max_m = item.get("max_metragem")
-                
-                # Se o item tem faixa de metragem definida, valida estritamente se 'metragem' está dentro do intervalo
-                if min_m is not None and max_m is not None:
-                    if float(min_m) <= metragem <= float(max_m):
-                        return round(float(item.get("valor", 0.0)), 2)
-                # Se o item NÃO tem metragem definida (None) - ex: Interno, Externo, Improdutivo
-                elif min_m is None and max_m is None:
-                    # Se for um serviço que não usa metragem, retorna direto
-                    return round(float(item.get("valor", 0.0)), 2)
 
-        # 2. SE PASSOU DA BUSCA DIRETA E HÁ METRAGEM, AVALIA FAIXAS GERAIS E EXCEDENTES
-        faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem") is not None]
-        if faixas_com_metragem and metragem > 0:
+        # 1. VERIFICA SERVIÇOS FIXOS / SEM FAIXA DE METRAGEM (EX: FDS, IMPRODUTIVO, INTERNO, ETC.)
+        for item in res_lpu.data:
+            nome_servico = str(item.get("servico", "")).strip().upper()
+            min_m = item.get("min_metragem")
+            max_m = item.get("max_metragem")
+            
+            if nome_servico == servico_upper and (min_m is None and max_m is None):
+                return round(float(item.get("valor", 0.0)), 2)
+
+        # 2. VERIFICA SERVIÇOS COM FAIXAS DE METRAGEM (MÍNIMO E MÁXIMO)
+        faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem"] is not None]
+        
+        if faixas_com_metragem:
             for item in faixas_com_metragem:
                 min_m = float(item.get("min_metragem"))
                 max_m = float(item.get("max_metragem"))
-                nome_servico = str(item.get("servico", "")).strip().lower()
+                nome_servico = str(item.get("servico", "")).strip().upper()
                 
-                if min_m <= metragem <= max_m and (servico_lower in nome_servico or nome_servico in servico_lower):
+                if (servico_upper in nome_servico or nome_servico in servico_upper or "EXTERNO" in servico_upper or "ACESSO À INTERNET" in nome_servico) and (min_m <= metragem <= max_m):
                     return round(float(item.get("valor", 0.0)), 2)
 
+            # 3. REGRA DE EXCEDENTE CASO ULTRAPASSE O TETO MÁXIMO DAS FAIXAS
             maior_faixa = max(faixas_com_metragem, key=lambda x: float(x.get("max_metragem", 0)))
             teto_max = float(maior_faixa.get("max_metragem", 0))
             
@@ -202,8 +195,9 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                 
         return 0.0
     except Exception as e:
-        print(f"Erro ao calcular LPU por faixa: {e}")
-        return 0.0        
+        print(f"Erro ao calcular LPU por fórmula: {e}")
+        return 0.0
+        
 def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico, metragem_cabo, valor_total):
     try:
         supabase.table("ATENDIMENTO").insert({
