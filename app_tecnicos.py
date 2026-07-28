@@ -151,17 +151,18 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
         except ValueError:
             metragem = 0.0
 
-        # 1. VERIFICA SERVIÇOS FIXOS / SEM FAIXA DE METRAGEM (EX: FDS, IMPRODUTIVO, INTERNO, ETC.)
+        # EQUIVALENTE AO EXCEL: IF(L2="fds", ...) / IF(L2="Improdutivo", ...) / IF(L2="Interno", ...)
         for item in res_lpu.data:
             nome_servico = str(item.get("servico", "")).strip().upper()
             min_m = item.get("min_metragem")
             max_m = item.get("max_metragem")
             
+            # Se for serviço fixo sem faixa de metragem (Interno, Improdutivo, FDS, etc.)
             if nome_servico == servico_upper and (min_m is None and max_m is None):
                 return round(float(item.get("valor", 0.0)), 2)
 
-        # 2. VERIFICA SERVIÇOS COM FAIXAS DE METRAGEM (MÍNIMO E MÁXIMO)
-        faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem"] is not None]
+        # EQUIVALENTE AO EXCEL: OR(L2="Externo", ...) com busca de faixa de metragem (Mínimo e Máximo)
+        faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem") is not None]
         
         if faixas_com_metragem:
             for item in faixas_com_metragem:
@@ -169,10 +170,11 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                 max_m = float(item.get("max_metragem"))
                 nome_servico = str(item.get("servico", "")).strip().upper()
                 
-                if (servico_upper in nome_servico or nome_servico in servico_upper or "EXTERNO" in servico_upper or "ACESSO À INTERNET" in nome_servico) and (min_m <= metragem <= max_m):
+                # Valida se o serviço é compatível (ex: Externo) e se a metragem está dentro da faixa cadastrada
+                if (servico_upper in nome_servico or nome_servico in servico_upper or "EXTERNO" in servico_upper) and (min_m <= metragem <= max_m):
                     return round(float(item.get("valor", 0.0)), 2)
 
-            # 3. REGRA DE EXCEDENTE CASO ULTRAPASSE O TETO MÁXIMO DAS FAIXAS
+            # Se a metragem ultrapassar a maior faixa cadastrada, calcula o excedente (Blocos adicionais)
             maior_faixa = max(faixas_com_metragem, key=lambda x: float(x.get("max_metragem", 0)))
             teto_max = float(maior_faixa.get("max_metragem", 0))
             
