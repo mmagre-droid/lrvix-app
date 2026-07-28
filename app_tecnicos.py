@@ -127,12 +127,14 @@ supabase = create_client(url, key)
 def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tecnico):
     try:
         tabela_lpu_alvo = "LPU"
+        eh_lpu_delivery = False
         try:
             res_tec = supabase.table("TECNICOS").select("lpu_atribuida").eq("cpf", cpf_tecnico).execute()
             if res_tec.data:
                 lpu_atribuida = res_tec.data[0].get("lpu_atribuida", "LPU Padrão")
                 if lpu_atribuida == "DELIVERY":
                     tabela_lpu_alvo = "LPU DELIVERY"
+                    eh_lpu_delivery = True
         except Exception:
             pass
 
@@ -175,7 +177,17 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                 if float(min_m) <= metragem <= float(max_m):
                     nome_servico = str(item.get("servico", "")).strip().lower()
                     if servico_lower in nome_servico or nome_servico in servico_lower or servico_upper in ["EXTERNO"]:
-                        return round(float(item.get("valor", 0.0)), 2)
+                        valor_encontrado = float(item.get("valor", 0.0))
+                        if eh_lpu_delivery and metragem > 500:
+                            excedente = metragem - 500
+                            valor_metro_adicional = 0.0
+                            for it_adc in res_lpu.data:
+                                s_nome = str(it_adc.get("servico", "")).strip().upper()
+                                if "METRAGEM" in s_nome or "EXCEDENTE" in s_nome or "ADICIONAL" in s_nome:
+                                    valor_metro_adicional = float(it_adc.get("valor", 0.0))
+                                    break
+                            valor_encontrado += (excedente * valor_metro_adicional)
+                        return round(valor_encontrado, 2)
 
         # 1. TENTA BUSCAR PRIMEIRO PELO NOME EXATO DO SERVIÇO E METRAGEM COMPATÍVEL
         for item in res_lpu.data:
@@ -186,9 +198,29 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                 
                 if min_m is not None and max_m is not None:
                     if float(min_m) <= metragem <= float(max_m):
-                        return round(float(item.get("valor", 0.0)), 2)
+                        valor_encontrado = float(item.get("valor", 0.0))
+                        if eh_lpu_delivery and metragem > 500:
+                            excedente = metragem - 500
+                            valor_metro_adicional = 0.0
+                            for it_adc in res_lpu.data:
+                                s_nome = str(it_adc.get("servico", "")).strip().upper()
+                                if "METRAGEM" in s_nome or "EXCEDENTE" in s_nome or "ADICIONAL" in s_nome:
+                                    valor_metro_adicional = float(it_adc.get("valor", 0.0))
+                                    break
+                            valor_encontrado += (excedente * valor_metro_adicional)
+                        return round(valor_encontrado, 2)
                 else:
-                    return round(float(item.get("valor", 0.0)), 2)
+                    valor_encontrado = float(item.get("valor", 0.0))
+                    if eh_lpu_delivery and metragem > 500:
+                        excedente = metragem - 500
+                        valor_metro_adicional = 0.0
+                        for it_adc in res_lpu.data:
+                            s_nome = str(it_adc.get("servico", "")).strip().upper()
+                            if "METRAGEM" in s_nome or "EXCEDENTE" in s_nome or "ADICIONAL" in s_nome:
+                                valor_metro_adicional = float(it_adc.get("valor", 0.0))
+                                break
+                        valor_encontrado += (excedente * valor_metro_adicional)
+                    return round(valor_encontrado, 2)
 
         # 2. SE NÃO ACHO EXATO POR NOME, TENTA A REGRA DE FAIXA GERAL OU EXCEDENTE
         faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem") is not None]
@@ -199,7 +231,17 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                 nome_servico = str(item.get("servico", "")).strip().lower()
                 
                 if min_m <= metragem <= max_m and (servico_lower in nome_servico or nome_servico in servico_lower):
-                    return round(float(item.get("valor", 0.0)), 2)
+                    valor_encontrado = float(item.get("valor", 0.0))
+                    if eh_lpu_delivery and metragem > 500:
+                        excedente = metragem - 500
+                        valor_metro_adicional = 0.0
+                        for it_adc in res_lpu.data:
+                            s_nome = str(it_adc.get("servico", "")).strip().upper()
+                            if "METRAGEM" in s_nome or "EXCEDENTE" in s_nome or "ADICIONAL" in s_nome:
+                                valor_metro_adicional = float(it_adc.get("valor", 0.0))
+                                break
+                        valor_encontrado += (excedente * valor_metro_adicional)
+                    return round(valor_encontrado, 2)
 
             maior_faixa = max(faixas_com_metragem, key=lambda x: float(x.get("max_metragem", 0)))
             teto_max = float(maior_faixa.get("max_metragem", 0))
@@ -219,7 +261,19 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                     valor_adicional_bloco = valor_base * (100.0 / teto_max)
                 
                 blocos_extras = (excedente // 100.0) + (1 if excedente % 100.0 > 0 else 0)
-                return round(valor_base + (blocos_extras * valor_adicional_bloco), 2)
+                valor_total_calc = valor_base + (blocos_extras * valor_adicional_bloco)
+                
+                if eh_lpu_delivery and metragem > 500:
+                    excedente_deliv = metragem - 500
+                    valor_metro_adicional = 0.0
+                    for it_adc in res_lpu.data:
+                        s_nome = str(it_adc.get("servico", "")).strip().upper()
+                        if "METRAGEM" in s_nome or "EXCEDENTE" in s_nome or "ADICIONAL" in s_nome:
+                            valor_metro_adicional = float(it_adc.get("valor", 0.0))
+                            break
+                    valor_total_calc += (excedente_deliv * valor_metro_adicional)
+                
+                return round(valor_total_calc, 2)
                 
         return 0.0
     except Exception as e:
