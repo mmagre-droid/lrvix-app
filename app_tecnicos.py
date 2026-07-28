@@ -151,20 +151,23 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
         except ValueError:
             metragem = 0.0
             
-        # 1. TENTA BUSCAR PRIMEIRO PELO NOME EXATO DO SERVIÇO E METRAGEM COMPATÍVEL
+        # 1. BUSCA EXATA OU POR SERVIÇO SEM METRAGEM (INTERNO, EXTERNO, IMPRODUTIVO, ETC.)
         for item in res_lpu.data:
             nome_servico = str(item.get("servico", "")).strip().lower()
             if nome_servico == servico_lower:
                 min_m = item.get("min_metragem")
                 max_m = item.get("max_metragem")
                 
+                # Se o item NÃO possui regras de metragem cadastradas (None), considera direto pelo nome
+                if min_m is None and max_m is None:
+                    return round(float(item.get("valor", 0.0)), 2)
+                
+                # Se possui regra de metragem, valida o intervalo
                 if min_m is not None and max_m is not None:
                     if float(min_m) <= metragem <= float(max_m):
                         return round(float(item.get("valor", 0.0)), 2)
-                else:
-                    return round(float(item.get("valor", 0.0)), 2)
 
-        # 2. SE NÃO ACHOU EXATO POR NOME, TENTA A REGRA DE FAIXA GERAL OU EXCEDENTE
+        # 2. SE NÃO ACHOU EXATO, TENTA A REGRA DE FAIXA DE METRAGEM OU EXCEDENTE
         faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem") is not None]
         if faixas_com_metragem and metragem > 0:
             for item in faixas_com_metragem:
@@ -199,7 +202,7 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
     except Exception as e:
         print(f"Erro ao calcular LPU por faixa: {e}")
         return 0.0
-
+        
 def registrar_atendimento(data_execucao, cliente, endereco, protocolo, mercado, tipo_servico, observacao, foto_url, nome_tecnico, cpf_tecnico, metragem_cabo, valor_total):
     try:
         supabase.table("ATENDIMENTO").insert({
