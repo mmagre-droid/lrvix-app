@@ -747,6 +747,7 @@ else:
             
     with aba2: 
         st.subheader("Lista de Atendimentos")
+        st.caption("💡 **Dica:** Clique em cima de qualquer atendimento abaixo para ver todos os detalhes e ler a **observação por completo** de forma simples.")
         
         if st.session_state.perfil == "Administrador":
             try:
@@ -800,46 +801,41 @@ else:
                 if 'data_execucao_dt' in df.columns:
                     df = df.drop(columns=['data_execucao_dt'])
             
-            colunas_para_ocultar = ['id', 'created_at', 'cpf_tecnico']
-            
-            if st.session_state.perfil != "Administrador":
-                colunas_para_ocultar.extend(['foto', 'responsavel', 'valor_total'])
-            
-            df_exibicao = df[[col for col in df.columns if col not in colunas_para_ocultar]]
-            
-            if 'valor_total' in df_exibicao.columns:
-                df_exibicao['valor_total'] = pd.to_numeric(df_exibicao['valor_total'], errors='coerce').map(lambda x: f"R$ {x:,.2f}" if pd.notnull(x) else "")
-
-            st.dataframe(df_exibicao, use_container_width=True)
-            
-            # --- MELHORIA APLICADA: EXPANSOR INTERATIVO PARA CADA ATENDIMENTO ---
+            # --- SUBSTITUIÇÃO DA TABELA FIXA POR CARTÕES EXPANSÍVEIS INTERATIVOS ---
             st.markdown("---")
-            st.markdown("### 🔍 Detalhes e Observação Completa por Atendimento")
-            st.caption("Clique abaixo em qualquer atendimento para expandir e ler a observação inteira com facilidade no celular:")
+            
+            # Filtra os dados atuais com base no DataFrame filtrado por datas
+            ids_validos = df['id'].tolist() if 'id' in df.columns else []
+            atendimentos_filtrados = [item for item in atendimentos.data if item.get('id') in ids_validos]
 
-            for idx, item in enumerate(atendimentos.data):
+            for idx, item in enumerate(atendimentos_filtrados):
                 data_original = item.get('data_execucao', '')
                 try:
                     data_formatada = pd.to_datetime(data_original).strftime('%d/%m/%Y')
                 except Exception:
                     data_formatada = data_original
                 
-                label_expander = f"📅 {data_formatada} | 🏷️ Prot: {item.get('protocolo', 'N/A')} | 👤 {item.get('cliente', 'N/A')}"
+                # Título amigável do expansor (ao clicar nele, abre tudo por completo)
+                label_expander = f"📅 {data_formatada} | 🏷️ Prot: {item.get('protocolo', 'N/A')} | 👤 {item.get('cliente', 'N/A')} | 🔧 {item.get('tipo_servico', 'N/A')}"
                 
                 with st.expander(label_expander):
-                    st.write(f"**Cliente:** {item.get('cliente', 'N/A')}")
-                    st.write(f"**Endereço:** {item.get('endereco', 'N/A')}")
-                    st.write(f"**Protocolo:** {item.get('protocolo', 'N/A')}")
-                    st.write(f"**Tipo de Serviço:** {item.get('tipo_servico', 'N/A')}")
-                    st.write(f"**Mercado:** {item.get('mercado', 'N/A')}")
-                    st.write(f"**Cabo Utilizado:** {item.get('metragem_cabo', 'N/A')}")
-                    if st.session_state.perfil == "Administrador":
-                        val_tot = item.get('valor_total', 0)
-                        st.write(f"**Valor LPU:** R$ {float(val_tot):,.2f}" if pd.notnull(val_tot) else "R$ 0,00")
+                    col_det1, col_det2 = st.columns(2)
+                    with col_det1:
+                        st.write(f"**Cliente:** {item.get('cliente', 'N/A')}")
+                        st.write(f"**Endereço:** {item.get('endereco', 'N/A')}")
+                        st.write(f"**Protocolo:** {item.get('protocolo', 'N/A')}")
+                        st.write(f"**Mercado:** {item.get('mercado', 'N/A')}")
+                    with col_det2:
+                        st.write(f"**Tipo de Serviço:** {item.get('tipo_servico', 'N/A')}")
+                        st.write(f"**Cabo Utilizado:** {item.get('metragem_cabo', 'N/A')}")
+                        if st.session_state.perfil == "Administrador":
+                            st.write(f"**Responsável:** {item.get('responsavel', 'N/A')}")
+                            val_tot = item.get('valor_total', 0)
+                            st.write(f"**Valor LPU:** R$ {float(val_tot):,.2f}" if pd.notnull(val_tot) else "R$ 0,00")
                     
                     st.markdown("---")
                     st.markdown(f"**📝 Observação Completa:**")
-                    # Caixa formatada que destaca a observação inteira de ponta a ponta
+                    # Caixa informativa que expande o texto inteiro sem cortes
                     st.info(item.get('observacao', 'Nenhuma observação registrada.'))
             
             st.write("")
