@@ -87,11 +87,6 @@ st.markdown("""
             pointer-events: none !important;
         }
         
-        /* Oculta qualquer elemento flutuante fixo no canto inferior/superior direito */
-        div[style*="fixed"], div[style*="absolute"] {
-            /* Garante que elementos injetados na flutuação sumam se necessário */
-        }
-        
         /* Ajuste de espaçamento geral */
         .block-container {
             padding-top: 2rem;
@@ -153,7 +148,6 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
         except ValueError:
             metragem = 0.0
             
-        # Tratamento especial para FDS, Improdutivo e Interno baseado na regra do Excel
         servico_upper = str(tipo_servico).strip().upper()
         if servico_upper == "FDS":
             for item in res_lpu.data:
@@ -168,7 +162,6 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                 if str(item.get("servico", "")).strip().upper() == "INTERNO":
                     return round(float(item.get("valor", 0.0)), 2)
 
-        # Regra para Externo ou Metragem Numérica (0 até <150 ou conforme faixa da tabela)
         for item in res_lpu.data:
             min_m = item.get("min_metragem")
             max_m = item.get("max_metragem")
@@ -189,7 +182,6 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                             valor_encontrado += (excedente * valor_metro_adicional)
                         return round(valor_encontrado, 2)
 
-        # 1. TENTA BUSCAR PRIMEIRO PELO NOME EXATO DO SERVIÇO E METRAGEM COMPATÍVEL
         for item in res_lpu.data:
             nome_servico = str(item.get("servico", "")).strip().lower()
             if nome_servico == servico_lower:
@@ -222,7 +214,6 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                         valor_encontrado += (excedente * valor_metro_adicional)
                     return round(valor_encontrado, 2)
 
-        # 2. SE NÃO ACHO EXATO POR NOME, TENTA A REGRA DE FAIXA GERAL OU EXCEDENTE
         faixas_com_metragem = [item for item in res_lpu.data if item.get("min_metragem") is not None and item.get("max_metragem") is not None]
         if faixas_com_metragem and metragem > 0:
             for item in faixas_com_metragem:
@@ -630,7 +621,6 @@ else:
     with aba1:
         st.subheader("NOVO LANÇAMENTO OPERACIONAL")
         
-        # --- BUSCAR LISTA DE EQUIPAMENTOS CADASTRADOS ---
         opcoes_equipamentos_cadastrados = ["Selecione..."]
         try:
             res_cad = supabase.table("CADASTRO_EQUIPAMENTOS").select("codigo, descricao").execute()
@@ -639,7 +629,6 @@ else:
         except Exception:
             pass
 
-        # --- OPÇÕES DE TROCA LOGO ABAIXO DO TÍTULO ---
         habilita_troca = st.checkbox("🔄 TROCA DE EQUIPAMENTO", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
         
         equipamento_velho = "Selecione..."
@@ -693,7 +682,6 @@ else:
             
             botao_enviar = st.form_submit_button("REGISTRAR ATENDIMENTO", use_container_width=True)
 
-        # --- PROCESSAMENTO DO ENVIO AO CLICAR NO BOTÃO DO FORMULÁRIO ---
         if botao_enviar:
             if not cliente or not endereco or not protocolo or not metragem_cabo:
                 st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
@@ -824,6 +812,29 @@ else:
 
             st.dataframe(df_exibicao, use_container_width=True)
             
+            # --- NOVO: CONSULTAR OBSERVAÇÃO COMPLETA SEM CORTE NO CELULAR ---
+            st.markdown("---")
+            st.markdown("### 🔍 Consultar Observação Completa")
+            opcoes_detalhe = {}
+            for item in atendimentos.data:
+                data_original = item.get('data_execucao', '')
+                try:
+                    data_formatada = pd.to_datetime(data_original).strftime('%d/%m/%Y')
+                except Exception:
+                    data_formatada = data_original
+                label = f"Data: {data_formatada} | Prot: {item.get('protocolo', 'N/A')} | Cliente: {item.get('cliente', 'N/A')}"
+                opcoes_detalhe[label] = item
+
+            atendimento_detalhe_selecionado = st.selectbox(
+                "Selecione um atendimento para ler a observação inteira:", 
+                ["Selecione..."] + list(opcoes_detalhe.keys()),
+                key="select_detalhe_obs"
+            )
+
+            if atendimento_detalhe_selecionado != "Selecione...":
+                detalhe_item = opcoes_detalhe[atendimento_detalhe_selecionado]
+                st.success(f"**Cliente:** {detalhe_item.get('cliente', 'N/A')}  \n**Protocolo:** {detalhe_item.get('protocolo', 'N/A')}  \n**Tipo de Serviço:** {detalhe_item.get('tipo_servico', 'N/A')}  \n\n**📝 Observação Completa:**\n{detalhe_item.get('observacao', 'Nenhuma observação registrada.')}")
+            
             st.write("")
             st.markdown("### 📊 Indicadores e Projeção")
             
@@ -831,13 +842,8 @@ else:
                 df_calc = df.copy()
                 dias_trabalhados = df_calc['data_execucao'].nunique() if 'data_execucao' in df_calc.columns else 0
                 
-                # Garante a conversão numérica direta da coluna original do banco antes de filtrar
                 df_calc['valor_numerico'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
-                
-                # Padroniza a coluna para maiúsculo para exclusão correta dos improdutivos
                 df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
-                
-                # Filtra excluindo os improdutivos
                 df_produtivos = df_calc[~df_calc['tipo_servico_upper'].str.contains('IMPRODUTIVO', na=False)]
                 
                 total_servicos_produtivos = len(df_produtivos)
@@ -847,7 +853,6 @@ else:
                 ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
                 total_geral = soma_valor_produtivos
                 
-                # Resumo dinâmico dos serviços produtivos
                 contagem_servicos = df_produtivos['tipo_servico'].value_counts().to_dict()
                 resumo_servicos_str = " | ".join([f"{k}: {v}" for k, v in contagem_servicos.items()])
                 if not resumo_servicos_str:
@@ -1066,7 +1071,6 @@ else:
     with aba4:
         st.subheader("📦 GESTÃO DE ESTOQUE E MOVIMENTAÇÕES")
         
-        # --- BUSCAR LISTA DE EQUIPAMENTOS CADASTRADOS ---
         opcoes_equipamentos_cadastrados = ["Selecione..."]
         try:
             res_cad = supabase.table("CADASTRO_EQUIPAMENTOS").select("codigo, descricao").execute()
