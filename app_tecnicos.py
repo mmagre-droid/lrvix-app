@@ -812,28 +812,35 @@ else:
 
             st.dataframe(df_exibicao, use_container_width=True)
             
-            # --- NOVO: CONSULTAR OBSERVAÇÃO COMPLETA SEM CORTE NO CELULAR ---
+            # --- MELHORIA APLICADA: EXPANSOR INTERATIVO PARA CADA ATENDIMENTO ---
             st.markdown("---")
-            st.markdown("### 🔍 Consultar Observação Completa")
-            opcoes_detalhe = {}
-            for item in atendimentos.data:
+            st.markdown("### 🔍 Detalhes e Observação Completa por Atendimento")
+            st.caption("Clique abaixo em qualquer atendimento para expandir e ler a observação inteira com facilidade no celular:")
+
+            for idx, item in enumerate(atendimentos.data):
                 data_original = item.get('data_execucao', '')
                 try:
                     data_formatada = pd.to_datetime(data_original).strftime('%d/%m/%Y')
                 except Exception:
                     data_formatada = data_original
-                label = f"Data: {data_formatada} | Prot: {item.get('protocolo', 'N/A')} | Cliente: {item.get('cliente', 'N/A')}"
-                opcoes_detalhe[label] = item
-
-            atendimento_detalhe_selecionado = st.selectbox(
-                "Selecione um atendimento para ler a observação inteira:", 
-                ["Selecione..."] + list(opcoes_detalhe.keys()),
-                key="select_detalhe_obs"
-            )
-
-            if atendimento_detalhe_selecionado != "Selecione...":
-                detalhe_item = opcoes_detalhe[atendimento_detalhe_selecionado]
-                st.success(f"**Cliente:** {detalhe_item.get('cliente', 'N/A')}  \n**Protocolo:** {detalhe_item.get('protocolo', 'N/A')}  \n**Tipo de Serviço:** {detalhe_item.get('tipo_servico', 'N/A')}  \n\n**📝 Observação Completa:**\n{detalhe_item.get('observacao', 'Nenhuma observação registrada.')}")
+                
+                label_expander = f"📅 {data_formatada} | 🏷️ Prot: {item.get('protocolo', 'N/A')} | 👤 {item.get('cliente', 'N/A')}"
+                
+                with st.expander(label_expander):
+                    st.write(f"**Cliente:** {item.get('cliente', 'N/A')}")
+                    st.write(f"**Endereço:** {item.get('endereco', 'N/A')}")
+                    st.write(f"**Protocolo:** {item.get('protocolo', 'N/A')}")
+                    st.write(f"**Tipo de Serviço:** {item.get('tipo_servico', 'N/A')}")
+                    st.write(f"**Mercado:** {item.get('mercado', 'N/A')}")
+                    st.write(f"**Cabo Utilizado:** {item.get('metragem_cabo', 'N/A')}")
+                    if st.session_state.perfil == "Administrador":
+                        val_tot = item.get('valor_total', 0)
+                        st.write(f"**Valor LPU:** R$ {float(val_tot):,.2f}" if pd.notnull(val_tot) else "R$ 0,00")
+                    
+                    st.markdown("---")
+                    st.markdown(f"**📝 Observação Completa:**")
+                    # Caixa formatada que destaca a observação inteira de ponta a ponta
+                    st.info(item.get('observacao', 'Nenhuma observação registrada.'))
             
             st.write("")
             st.markdown("### 📊 Indicadores e Projeção")
