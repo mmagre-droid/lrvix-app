@@ -808,35 +808,36 @@ else:
             ids_validos = df['id'].tolist() if 'id' in df.columns else []
             atendimentos_filtrados = [item for item in atendimentos.data if item.get('id') in ids_validos]
 
-            for idx, item in enumerate(atendimentos_filtrados):
-                data_original = item.get('data_execucao', '')
-                try:
-                    data_formatada = pd.to_datetime(data_original).strftime('%d/%m/%Y')
-                except Exception:
-                    data_formatada = data_original
-                
-                # Título amigável do expansor (ao clicar nele, abre tudo por completo)
-                label_expander = f"📅 {data_formatada} | 🏷️ Prot: {item.get('protocolo', 'N/A')} | 👤 {item.get('cliente', 'N/A')} | 🔧 {item.get('tipo_servico', 'N/A')}"
-                
-                with st.expander(label_expander):
-                    col_det1, col_det2 = st.columns(2)
-                    with col_det1:
-                        st.write(f"**Cliente:** {item.get('cliente', 'N/A')}")
-                        st.write(f"**Endereço:** {item.get('endereco', 'N/A')}")
-                        st.write(f"**Protocolo:** {item.get('protocolo', 'N/A')}")
-                        st.write(f"**Mercado:** {item.get('mercado', 'N/A')}")
-                    with col_det2:
-                        st.write(f"**Tipo de Serviço:** {item.get('tipo_servico', 'N/A')}")
-                        st.write(f"**Cabo Utilizado:** {item.get('metragem_cabo', 'N/A')}")
-                        if st.session_state.perfil == "Administrador":
-                            st.write(f"**Responsável:** {item.get('responsavel', 'N/A')}")
-                            val_tot = item.get('valor_total', 0)
-                            st.write(f"**Valor LPU:** R$ {float(val_tot):,.2f}" if pd.notnull(val_tot) else "R$ 0,00")
+            with st.expander("📂 Atendimentos Cadastrados", expanded=False):
+                for idx, item in enumerate(atendimentos_filtrados):
+                    data_original = item.get('data_execucao', '')
+                    try:
+                        data_formatada = pd.to_datetime(data_original).strftime('%d/%m/%Y')
+                    except Exception:
+                        data_formatada = data_original
                     
-                    st.markdown("---")
-                    st.markdown(f"**📝 Observação Completa:**")
-                    # Caixa informativa que expande o texto inteiro sem cortes
-                    st.info(item.get('observacao', 'Nenhuma observação registrada.'))
+                    # Título amigável do expansor (ao clicar nele, abre tudo por completo)
+                    label_expander = f"📅 {data_formatada} | 🏷️ Prot: {item.get('protocolo', 'N/A')} | 👤 {item.get('cliente', 'N/A')} | 🔧 {item.get('tipo_servico', 'N/A')}"
+                    
+                    with st.expander(label_expander):
+                        col_det1, col_det2 = st.columns(2)
+                        with col_det1:
+                            st.write(f"**Cliente:** {item.get('cliente', 'N/A')}")
+                            st.write(f"**Endereço:** {item.get('endereco', 'N/A')}")
+                            st.write(f"**Protocolo:** {item.get('protocolo', 'N/A')}")
+                            st.write(f"**Mercado:** {item.get('mercado', 'N/A')}")
+                        with col_det2:
+                            st.write(f"**Tipo de Serviço:** {item.get('tipo_servico', 'N/A')}")
+                            st.write(f"**Cabo Utilizado:** {item.get('metragem_cabo', 'N/A')}")
+                            if st.session_state.perfil == "Administrador":
+                                st.write(f"**Responsável:** {item.get('responsavel', 'N/A')}")
+                                val_tot = item.get('valor_total', 0)
+                                st.write(f"**Valor LPU:** R$ {float(val_tot):,.2f}" if pd.notnull(val_tot) else "R$ 0,00")
+                        
+                        st.markdown("---")
+                        st.markdown(f"**📝 Observação Completa:**")
+                        # Caixa informativa que expande o texto inteiro sem cortes
+                        st.info(item.get('observacao', 'Nenhuma observação registrada.'))
             
             st.write("")
             st.markdown("### 📊 Indicadores e Projeção")
