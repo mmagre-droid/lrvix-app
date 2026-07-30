@@ -852,7 +852,7 @@ else:
                 df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
                 
                 # ⬇️ GARANTE QUE APENAS OS SERVIÇOS PRODUTIVOS (INTERNO E EXTERNO) ENTRAM NO CÁLCULO ⬇️
-                df_produtivos = df_calc[df_calc['tipo_servico_upper'].isin(['INTERNO', 'EXTERNO'])]
+                df_produtivos = df_calc[~df_calc['tipo_servico_upper'].isin(['IMPRODUTIVO', 'FDS'])]
                 
                 total_servicos_produtivos = len(df_produtivos)
                 media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
