@@ -777,7 +777,9 @@ else:
             col_f1, col_f2 = st.columns([2, 2])
             with col_f2:
                 periodo_datas = st.date_input("Filtrar por Período (Data de Execução):", value=[])
-            query = supabase.table("ATENDIMENTO").select("*").eq("cpf_tecnico", st.session_state.cpf_tecnico)
+            
+            # ⬇️ FILTRO APLICADO PARA O PERFIL TÉCNICO: APENAS SERVIÇOS INTERNO E EXTERNO ⬇️
+            query = supabase.table("ATENDIMENTO").select("*").eq("cpf_tecnico", st.session_state.cpf_tecnico).in_("tipo_servico", ["INTERNO", "EXTERNO"])
         
         atendimentos = query.execute()
             
@@ -848,7 +850,9 @@ else:
                 
                 df_calc['valor_numerico'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
                 df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
-                df_produtivos = df_calc[~df_calc['tipo_servico_upper'].str.contains('IMPRODUTIVO', na=False)]
+                
+                # ⬇️ GARANTE QUE APENAS OS SERVIÇOS PRODUTIVOS (INTERNO E EXTERNO) ENTRAM NO CÁLCULO ⬇️
+                df_produtivos = df_calc[df_calc['tipo_servico_upper'].isin(['INTERNO', 'EXTERNO'])]
                 
                 total_servicos_produtivos = len(df_produtivos)
                 media_servico = (total_servicos_produtivos / dias_trabalhados) if dias_trabalhados > 0 else 0.0
