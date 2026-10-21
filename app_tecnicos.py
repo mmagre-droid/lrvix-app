@@ -6,6 +6,8 @@ from supabase import create_client
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import os
+from streamlit_option_menu import option_menu
+from datetime import date
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
@@ -13,6 +15,15 @@ st.set_page_config(
     page_icon="⚡",
     layout="wide"
 )
+
+# --- OCULTAR MENSAGEM DO CTRL+ENTER NO TEXT_AREA ---
+st.markdown("""
+    <style>
+    div[data-testid="InputInstructions"] {
+        display: none !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # --- CONFIGURAÇÃO DE PWA PARA TRANSFORMAR EM APLICATIVO ---
 st.markdown("""
@@ -38,6 +49,7 @@ if "logado" not in st.session_state:
         st.session_state.nome_tecnico = query_params.get("nome", "")
         st.session_state.perfil = query_params.get("perfil", "")
         st.session_state.cpf_tecnico = query_params.get("cpf", "")
+        st.session_state.tipo_atuacao_sessao = query_params.get("tipo_atuacao", "")
         st.session_state.precisa_trocar_senha = False
     else:
         st.session_state.logado = False
@@ -45,6 +57,7 @@ if "logado" not in st.session_state:
         st.session_state.nome_tecnico = ""
         st.session_state.perfil = ""
         st.session_state.cpf_tecnico = ""
+        st.session_state.tipo_atuacao_sessao = ""
         st.session_state.precisa_trocar_senha = False
 
 if "modo_admin" not in st.session_state:
@@ -55,63 +68,63 @@ if "perfil" not in st.session_state:
     st.session_state.perfil = ""
 if "cpf_tecnico" not in st.session_state:
     st.session_state.cpf_tecnico = ""
+if "tipo_atuacao_sessao" not in st.session_state:
+    st.session_state.tipo_atuacao_sessao = ""
 if "precisa_trocar_senha" not in st.session_state:
     st.session_state.precisa_trocar_senha = False
 
-# --- ESTILIZAÇÃO CSS (OCULTA CABEÇALHO, MENU, ÍCONES FLUTUANTES E GITHUB) ---
-st.markdown("""
+# --- ESTILIZAÇÃO CSS ---
+st.markdown(
+    """
     <style>
-
     /* ⬇️ BLOQUEIA O PULL-TO-REFRESH NO CELULAR ⬇️ */
-        body, html {
-            overscroll-behavior-y: none;
-        }
-        
-        /* Oculta completamente o cabeçalho e rodapé padrão do Streamlit */
-        header {visibility: hidden !important; display: none !important;}
-        #MainMenu {visibility: hidden !important; display: none !important;}
-        footer {visibility: hidden !important; display: none !important;}
-        
-        /* Oculta botões e ícones flutuantes do Streamlit (Deploy, Status, ViewerBadge) */
-        .stAppDeployButton,
-        [data-testid="stStatusWidget"],
-        div[data-testid="stToolbar"],
-        div[class*="stToolbar"],
-        div[class*="viewerBadge"],
-        button[kind="header"],
-        [class*="profileContainer"],
-        [class*="styles-module_container"] {
-            visibility: hidden !important;
-            display: none !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-        }
-        
-        /* Ajuste de espaçamento geral */
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-            max-width: 1200px;
-        }
-        
-        /* Estilo para cartões e blocos */
-        div.stButton > button {
-            border-radius: 6px;
-            font-weight: 500;
-        }
-        
-        /* Ajuste de abas */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-        }
-        .stTabs [data-baseweb="tab"] {
-            height: 45px;
-            white-space: pre-wrap;
-            border-radius: 4px 4px 0px 0px;
-            font-weight: 600;
-        }
+    body, html {
+        overscroll-behavior-y: none;
+    }
+    
+    /* ⬇️ ALINHAR BOTÕES DA SIDEBAR À ESQUERDA ⬇️ */
+    section[data-testid="stSidebar"] div.stButton > button {
+        display: block !important;
+        text-align: left !important;
+        width: 100% !important;
+        padding-left: 10px !important;
+    }
+    
+    section[data-testid="stSidebar"] div.stButton > button * {
+        text-align: left !important;
+        justify-content: flex-start !important;
+    }
+    
+    /* Oculta rodapé nativo */
+    footer {visibility: hidden !important; display: none !important;}
+    
+    /* Ajuste de espaçamento geral */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 1200px;
+    }
+    
+    /* Estilo para cartões e blocos */
+    div.stButton > button {
+        border-radius: 6px;
+        font-weight: 500;
+    }
+    
+    /* Ajuste de abas */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 45px;
+        white-space: pre-wrap;
+        border-radius: 4px 4px 0px 0px;
+        font-weight: 600;
+    }
     </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # --- CONFIGURAÇÃO ---
 url = st.secrets["SUPABASE_URL"]
@@ -129,6 +142,11 @@ def calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, cpf_tec
                 lpu_atribuida = res_tec.data[0].get("lpu_atribuida", "LPU Padrão")
                 if lpu_atribuida == "DELIVERY":
                     tabela_lpu_alvo = "LPU DELIVERY"
+                    eh_lpu_delivery = True
+                elif lpu_atribuida == "LPU - MEI":
+                    tabela_lpu_alvo = "LPU_MEI"
+                elif lpu_atribuida == "LPU DELIVERY - MEI":
+                    tabela_lpu_alvo = "LPU_DELIVERY_MEI"
                     eh_lpu_delivery = True
         except Exception:
             pass
@@ -299,6 +317,7 @@ def gerar_pdf_apr(apr_id):
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib import colors
+        import io
         import os
         
         pasta_destino = "aprs_geradas"
@@ -456,6 +475,47 @@ def gerar_pdf_apr(apr_id):
             ]))
             story.append(tabela_paralisa)
             
+            caminho_ass = item.get('assinatura_url')
+            if caminho_ass and caminho_ass.strip() != "":
+                try:
+                    story.append(Spacer(1, 15))
+                    dados_ass_cabecalho = [[Paragraph("<b>ASSINATURA DO TÉCNICO RESPONSÁVEL</b>", estilo_secao)]]
+                    tabela_ass_cab = Table(dados_ass_cabecalho, colWidths=[540])
+                    tabela_ass_cab.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#2563eb')),
+                        ('BOTTOMPADDING', (0, 0), (0, 0), 6),
+                        ('TOPPADDING', (0, 0), (0, 0), 6),
+                        ('LEFTPADDING', (0, 0), (0, 0), 8),
+                        ('GRID', (0, 0), (0, 0), 0.5, colors.HexColor('#e5e7eb')),
+                    ]))
+                    story.append(tabela_ass_cab)
+                    story.append(Spacer(1, 8))
+                    
+                    res_bytes_ass = supabase.storage.from_("fotos_atendimentos").download(caminho_ass)
+                    if res_bytes_ass:
+                        temp_ass_path = os.path.join(pasta_destino, f"temp_ass_{apr_id}.jpg")
+                        with open(temp_ass_path, "wb") as f:
+                            f.write(res_bytes_ass)
+                        
+                        img_ass = Image(temp_ass_path, width=200, height=70)
+                        img_ass.hAlign = 'CENTER'
+                        
+                        dados_bloco_assinatura = [
+                            [img_ass],
+                            [Paragraph(f"<b>Técnico:</b> {nome_tecnico.upper()} &nbsp;&nbsp;|&nbsp;&nbsp; <b>CPF:</b> {cpf_tec}", ParagraphStyle('TxtAss', parent=estilo_texto, alignment=1))]
+                        ]
+                        tabela_bloco_ass = Table(dados_bloco_assinatura, colWidths=[540])
+                        tabela_bloco_ass.setStyle(TableStyle([
+                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                            ('TOPPADDING', (0, 0), (-1, -1), 4),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+                        ]))
+                        story.append(tabela_bloco_ass)
+                except Exception as e:
+                    story.append(Paragraph(f"Não foi possível carregar a assinatura: {str(e)}", estilo_texto))
+            
             caminhos_fotos = item.get('foto_paralisacao')
             
             if caminhos_fotos and isinstance(caminhos_fotos, list) and len(caminhos_fotos) > 0:
@@ -506,7 +566,21 @@ def gerar_pdf_apr(apr_id):
         c.drawString(50, 750, f"Erro ao gerar PDF: {str(e)}")
         c.save()
         return nome_arquivo
-    
+
+# --- FUNÇÃO AUXILIAR PARA OBTER PERFIS DISPONÍVEIS ---
+def obter_perfis_cadastrados():
+    perfis_padrao = ["Técnico", "Administrador"]
+    try:
+        res_p = supabase.table("PERMISSOES").select("perfil").execute()
+        if res_p.data:
+            perfis_banco = [item.get("perfil") for item in res_p.data if item.get("perfil")]
+            for p in perfis_banco:
+                if p not in perfis_padrao:
+                    perfis_padrao.append(p)
+    except Exception:
+        pass
+    return perfis_padrao
+
 # --- TELA DE LOGIN OU TROCA OBRIGATÓRIA DE SENHA ---
 if not st.session_state.logado:
     col_l1, col_l2, col_l3 = st.columns([1, 1.2, 1])
@@ -548,6 +622,7 @@ if not st.session_state.logado:
                             st.query_params["nome"] = st.session_state.nome_tecnico
                             st.query_params["perfil"] = st.session_state.perfil
                             st.query_params["cpf"] = st.session_state.cpf_tecnico
+                            st.query_params["tipo_atuacao"] = st.session_state.tipo_atuacao_sessao
                             
                             st.success("Senha alterada com sucesso!")
                             time.sleep(1)
@@ -557,96 +632,206 @@ if not st.session_state.logado:
         else:
             cpf_input = st.text_input("CPF")
             senha_input = st.text_input("Senha", type="password", key="login_senha")
+            
+            tipo_atendimento_login = st.radio(
+                "Selecione a modalidade de trabalho:",
+                options=["FIELD", "DELIVERY"],
+                index=None,
+                horizontal=True
+            )
+            
             st.write("")
             if st.button("Entrar", use_container_width=True):
-                try:
-                    user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
+                if not tipo_atendimento_login:
+                    st.warning("⚠️ Selecione obrigatoriamente se irá trabalhar em FIELD ou DELIVERY!")
+                elif str(cpf_input).strip() == "admin" and str(senha_input).strip() == "tR294xmvYmyYhVB":
+                    st.session_state.nome_tecnico = "Administrador Master"
+                    st.session_state.perfil = "Administrador"
+                    st.session_state.cpf_tecnico = "admin"
+                    st.session_state.tipo_atuacao_sessao = tipo_atendimento_login
+                    st.session_state.logado = True
+                    st.session_state.precisa_trocar_senha = False
                     
-                    if user_query.data:
-                        dados_user = user_query.data[0]
-                        senha_banco = str(dados_user.get("senha", "")).strip()
-                        senha_digitada = str(senha_input).strip()
+                    st.query_params["logado"] = "True"
+                    st.query_params["nome"] = "Administrador Master"
+                    st.query_params["perfil"] = "Administrador"
+                    st.query_params["cpf"] = "admin"
+                    st.query_params["tipo_atuacao"] = tipo_atendimento_login
+                    
+                    st.rerun()
+                else:
+                    try:
+                        user_query = supabase.table("TECNICOS").select("*").eq("cpf", str(cpf_input).strip()).execute()
                         
-                        eh_primeiro_acesso = dados_user.get("primeiro_acesso", True) or senha_banco == "123456"
-                        
-                        if senha_banco == senha_digitada:
-                            if dados_user.get("ativo") is True:
-                                st.session_state.nome_tecnico = dados_user["nome"]
-                                st.session_state.perfil = dados_user["perfil"]
-                                st.session_state.cpf_tecnico = dados_user["cpf"]
-                                
-                                if eh_primeiro_acesso and senha_digitada == "123456":
-                                    st.session_state.precisa_trocar_senha = True
-                                    st.rerun()
+                        if user_query.data:
+                            dados_user = user_query.data[0]
+                            senha_banco = str(dados_user.get("senha", "")).strip()
+                            senha_digitada = str(senha_input).strip()
+                            
+                            eh_primeiro_acesso = dados_user.get("primeiro_acesso", True) or senha_banco == "123456"
+                            
+                            if senha_banco == senha_digitada:
+                                if dados_user.get("ativo") is True:
+                                    st.session_state.nome_tecnico = dados_user["nome"]
+                                    st.session_state.perfil = dados_user["perfil"]
+                                    st.session_state.cpf_tecnico = dados_user["cpf"]
+                                    st.session_state.tipo_atuacao_sessao = tipo_atendimento_login
+                                    
+                                    if eh_primeiro_acesso and senha_digitada == "123456":
+                                        st.session_state.precisa_trocar_senha = True
+                                        st.rerun()
+                                    else:
+                                        st.session_state.logado = True
+                                        st.session_state.precisa_trocar_senha = False
+                                        
+                                        st.query_params["logado"] = "True"
+                                        st.query_params["nome"] = dados_user["nome"]
+                                        st.query_params["perfil"] = dados_user["perfil"]
+                                        st.query_params["cpf"] = dados_user["cpf"]
+                                        st.query_params["tipo_atuacao"] = tipo_atendimento_login
+                                        
+                                        st.rerun()
                                 else:
-                                    st.session_state.logado = True
-                                    st.session_state.precisa_trocar_senha = False
-                                    
-                                    st.query_params["logado"] = "True"
-                                    st.query_params["nome"] = dados_user["nome"]
-                                    st.query_params["perfil"] = dados_user["perfil"]
-                                    st.query_params["cpf"] = dados_user["cpf"]
-                                    
-                                    st.rerun()
+                                    st.error("⚠️ Este usuário está inativo.")
                             else:
-                                st.error("⚠️ Este usuário está inativo.")
+                                st.error("❌ CPF ou Senha incorretos.")
                         else:
                             st.error("❌ CPF ou Senha incorretos.")
-                    else:
-                        st.error("❌ CPF ou Senha incorretos.")
-                except Exception as e:
-                    st.error(f"Erro na conexão com o banco: {e}")
+                    except Exception as e:
+                        st.error(f"Erro na conexão com o banco: {e}")
 
 else:
-    col_h1, col_h2 = st.columns([3, 1])
-    with col_h1:
+    # --- CARREGAR PERMISSÕES DO PERFIL DO USUÁRIO LOGADO ---
+    perms_usuario = {
+        "ve_formulario": True,
+        "ve_produtividade": True,
+        "ve_apr": True,
+        "ve_estoque": True,
+        "ve_admin": True if st.session_state.perfil == "Administrador" else False,
+        "ve_colaborador": True
+    }
+    try:
+        res_p = supabase.table("PERMISSOES").select("*").eq("perfil", st.session_state.perfil).execute()
+        if res_p.data:
+            perms_usuario = res_p.data[0]
+    except Exception:
+        pass
+
+    # --- BARRA LATERAL (MENU NA ESQUERDA) ATUALIZADA COM PERMISSÕES ---
+    with st.sidebar:
         st.markdown(f"### ⚡ Olá, **{st.session_state.nome_tecnico}**")
-        st.caption(f"Perfil de Acesso: **{st.session_state.perfil}**")
-    with col_h2:
+        st.caption(f"Perfil: **{st.session_state.perfil}** | Modo: **{st.session_state.get('tipo_atuacao_sessao', 'N/A')}**")
+        
+        st.markdown("---")
+        
+        if "menu_principal_ativo" not in st.session_state:
+            st.session_state.menu_principal_ativo = "FORMULÁRIO"
+
+        def mudar_menu(novo_menu):
+            st.session_state.menu_principal_ativo = novo_menu
+            st.rerun()
+
+        if perms_usuario.get("ve_formulario", True):
+            if st.button("📄 FORMULÁRIO", use_container_width=True): mudar_menu("FORMULÁRIO")
+            
+        if perms_usuario.get("ve_produtividade", True):
+            if st.button("📊 PRODUTIVIDADE", use_container_width=True): mudar_menu("PRODUTIVIDADE")
+            
+        if perms_usuario.get("ve_apr", True):
+            if st.button("⚠️ APR", use_container_width=True): mudar_menu("APR")
+
+        # Menu Estoque com Expander
+        if perms_usuario.get("ve_estoque", True):
+            with st.expander("📦 ESTOQUE", expanded=(st.session_state.menu_principal_ativo == "ESTOQUE")):
+                if st.button("📥 Entrada de Mercadoria", use_container_width=True):
+                    st.session_state.submenu_estoque = "Entrada de Mercadoria"
+                    mudar_menu("ESTOQUE")
+                if st.button("🔄 Troca de Equipamento", use_container_width=True):
+                    st.session_state.submenu_estoque = "Troca de Equipamento"
+                    mudar_menu("ESTOQUE")
+                if st.button("📋 Saldo e Histórico", use_container_width=True):
+                    st.session_state.submenu_estoque = "Saldo e Histórico"
+                    mudar_menu("ESTOQUE")
+
+        # Menu Admin com Expander
+        if perms_usuario.get("ve_admin", False) or st.session_state.perfil == "Administrador":
+            with st.expander("⚙️ ADMIN", expanded=(st.session_state.menu_principal_ativo == "ADMIN")):
+                if st.button("👤 Perfis de Usuários", use_container_width=True):
+                    st.session_state.submenu_admin = "Perfis de Usuários"
+                    mudar_menu("ADMIN")
+                if st.button("➕ Cadastrar Novo Usuário", use_container_width=True):
+                    st.session_state.submenu_admin = "Cadastrar Novo Usuário"
+                    mudar_menu("ADMIN")
+                if st.button("🔒 Gerenciar Permissões", use_container_width=True):
+                    st.session_state.submenu_admin = "Gerenciar Permissões"
+                    mudar_menu("ADMIN")
+                if st.button("📊 Tabela LPU", use_container_width=True):
+                    st.session_state.submenu_admin = "Tabela LPU"
+                    mudar_menu("ADMIN")
+                if st.button("🚚 Tabela LPU Delivery", use_container_width=True):
+                    st.session_state.submenu_admin = "Tabela LPU Delivery"
+                    mudar_menu("ADMIN")
+                if st.button("📊 Tabela LPU - MEI", use_container_width=True):
+                    st.session_state.submenu_admin = "Tabela LPU - MEI"
+                    mudar_menu("ADMIN")
+                if st.button("🚚 Tabela LPU Delivery - MEI", use_container_width=True):
+                    st.session_state.submenu_admin = "Tabela LPU Delivery - MEI"
+                    mudar_menu("ADMIN")
+                if st.button("🛠 Cadastro de Equipamento", use_container_width=True):
+                    st.session_state.submenu_admin = "Cadastro de Equipamento"
+                    mudar_menu("ADMIN")
+
+        # Menu Colaborador
+        if perms_usuario.get("ve_colaborador", True):
+            with st.expander("👥 COLABORADOR", expanded=(st.session_state.menu_principal_ativo == "COLABORADOR")):
+                if st.button("📋 ATESTADO", use_container_width=True):
+                    st.session_state.submenu_colaborador = "ATESTADO"
+                    mudar_menu("COLABORADOR")
+                if st.button("💵 CONTRA CHEQUE", use_container_width=True):
+                    st.session_state.submenu_colaborador = "CONTRA CHEQUE"
+                    mudar_menu("COLABORADOR")
+
+        st.markdown("---")
         if st.button("🚪 Sair do Sistema", use_container_width=True):
             st.session_state.logado = False
-            st.session_state.precisa_trocar_senha = False
             st.query_params.clear()
             st.rerun()
 
-    st.markdown("---")
+    # --- INICIALIZAÇÃO DOS SUBMENUS ---
+    if "submenu_estoque" not in st.session_state:
+        st.session_state.submenu_estoque = "Entrada de Mercadoria"
+    if "submenu_admin" not in st.session_state:
+        st.session_state.submenu_admin = "Perfis de Usuários"
+    if "submenu_colaborador" not in st.session_state:
+        st.session_state.submenu_colaborador = "ATESTADO"
     
-    if st.session_state.perfil == "Administrador":
-        aba1, aba2, aba3, aba4, aba5 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "📦 ESTOQUE", "⚙️ ADMIN"])
-    else:
-        aba1, aba2, aba3, aba4 = st.tabs(["📝 FORMULÁRIO", "📊 PRODUTIVIDADE", "⚠️ APR", "📦 ESTOQUE"])
-        aba5 = None
+    sub_menu_estoque = st.session_state.submenu_estoque
+    sub_menu_admin = st.session_state.submenu_admin
+    sub_menu_colaborador = st.session_state.submenu_colaborador
 
+    aba1 = (st.session_state.menu_principal_ativo == "FORMULÁRIO")
+    aba2 = (st.session_state.menu_principal_ativo == "PRODUTIVIDADE")
+    aba3 = (st.session_state.menu_principal_ativo == "APR")
+    aba4 = (st.session_state.menu_principal_ativo == "ESTOQUE")
+    aba5 = (st.session_state.menu_principal_ativo == "ADMIN")
+    aba6 = (st.session_state.menu_principal_ativo == "COLABORADOR")
 
-    with aba1:
+    if aba1 and perms_usuario.get("ve_formulario", True):
         st.subheader("NOVO LANÇAMENTO OPERACIONAL")
         
-        opcoes_equipamentos_cadastrados = ["Selecione..."]
+        if "form_version" not in st.session_state:
+            st.session_state.form_version = 0
+
+        v = st.session_state.form_version
+
+        opcoes_equipamentos_cadastrados = ["SELECIONE..."]
         try:
             res_cad = supabase.table("CADASTRO_EQUIPAMENTOS").select("codigo, descricao").execute()
             if res_cad.data:
-                opcoes_equipamentos_cadastrados += [f"{item['codigo']} - {item['descricao']}" for item in res_cad.data]
+                opcoes_equipamentos_cadastrados += [f"{item['codigo']} - {item['descricao']}".upper() for item in res_cad.data]
         except Exception:
             pass
 
-        habilita_troca = st.checkbox("🔄 TROCA DE EQUIPAMENTO", value=st.session_state.get("habilita_troca_state", False), key="habilita_troca_state")
-        
-        equipamento_velho = "Selecione..."
-        equipamento_novo = "Selecione..."
-        status_velho = "DEFEITO"
-        
-        if habilita_troca:
-            st.info("O equipamento **novo** sai do estoque para o cliente, e o **velho** entra no estoque.")
-            tc_e1, tc_e2 = st.columns(2)
-            with tc_e1:
-                equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="form_eq_velho")
-            with tc_e2:
-                equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="form_eq_novo")
-            
-            status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"], key="form_status_velho")
-
-        st.divider()
-        
         tabela_lpu_alvo = "LPU"
         lista_opcoes_servicos = ["INTERNO", "EXTERNO", "IMPRODUTIVO"]
         
@@ -654,39 +839,70 @@ else:
             res_tec = supabase.table("TECNICOS").select("lpu_atribuida").eq("cpf", st.session_state.cpf_tecnico).execute()
             if res_tec.data:
                 lpu_atribuida = res_tec.data[0].get("lpu_atribuida", "LPU Padrão")
-                
                 if lpu_atribuida == "DELIVERY":
                     tabela_lpu_alvo = "LPU DELIVERY"
-                    res_servicos = supabase.table("LPU DELIVERY").select("servico").execute()
+                elif lpu_atribuida == "LPU - MEI":
+                    tabela_lpu_alvo = "LPU_MEI"
+                elif lpu_atribuida == "LPU DELIVERY - MEI":
+                    tabela_lpu_alvo = "LPU_DELIVERY_MEI"
+                
+                if "DELIVERY" in lpu_atribuida:
+                    res_servicos = supabase.table(tabela_lpu_alvo).select("servico").execute()
                     if res_servicos.data:
-                        servicos_delivery = [str(item.get("servico")).strip() for item in res_servicos.data if item.get("servico")]
+                        servicos_delivery = [str(item.get("servico")).strip().upper() for item in res_servicos.data if item.get("servico")]
                         if servicos_delivery:
                             lista_opcoes_servicos = servicos_delivery
         except Exception as e:
             print(f"Erro ao carregar serviços da LPU: {e}")
 
-        with st.form("form_atendimento", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            with c1:
-                data_execucao = st.date_input("DATA DA EXECUÇÃO", format="DD/MM/YYYY")
-                cliente = st.text_input("NOME DO CLIENTE")
-                endereco = st.text_input("ENDEREÇO")
-                metragem_cabo = st.text_input("CABO UTILIZADO")
-            with c2:
-                protocolo = st.text_input("PROTOCOLO")
-                mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"])
-                tipo_servico = st.selectbox("TIPO DE SERVIÇO", lista_opcoes_servicos)
+        c1, c2 = st.columns(2)
+        with c1:
+            data_execucao = st.date_input("DATA DA EXECUÇÃO", format="DD/MM/YYYY", key=f"input_data_{v}")
+            cliente = st.text_input("NOME DO CLIENTE", key=f"input_cliente_{v}")
+            endereco = st.text_input("ENDEREÇO", key=f"input_endereco_{v}")
+            metragem_cabo = st.text_input("CABO UTILIZADO", key=f"input_cabo_{v}")
+        with c2:
+            protocolo = st.text_input("PROTOCOLO", key=f"input_protocolo_{v}")
+            mercado = st.selectbox("MERCADO", ["REPARO", "ATIVAÇÃO", "RETIRADA"], key=f"input_mercado_{v}")
+            tipo_servico = st.selectbox("TIPO DE SERVIÇO", lista_opcoes_servicos, key=f"input_servico_{v}")
+        
+        observacao = st.text_area("OBSERVAÇÃO", key=f"input_obs_{v}")
+        fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True, key=f"input_fotos_{v}")
+        
+        st.divider()
+        
+        habilita_troca = st.checkbox("TROCA DE EQUIPAMENTO", value=False, key=f"check_troca_{v}")
+        
+        quantidades_velhos = {}
+        quantidades_novos = {}
+        equipamentos_velhos_selecionados = []
+        equipamentos_novos_selecionados = []
+        status_velho = "DEFEITO"
+
+        if habilita_troca:
+            st.info("O equipamento novo sai do estoque e o velho entra.")
+            tc_e1, tc_e2 = st.columns(2)
+            with tc_e1:
+                equipamentos_velhos_selecionados = st.multiselect("NOME DOS EQUIPAMENTOS VELHOS / RETIRADOS", [opt for opt in opcoes_equipamentos_cadastrados if opt != "SELECIONE..."], key=f"sel_velhos_{v}")
+                if equipamentos_velhos_selecionados:
+                    for eq in equipamentos_velhos_selecionados:
+                        quantidades_velhos[eq] = st.number_input(f"Qtd Velho: {eq}", min_value=1, value=1, step=1, key=f"qtd_v_{eq}_{v}")
+            with tc_e2:
+                equipamentos_novos_selecionados = st.multiselect("NOME DOS EQUIPAMENTOS NOVOS", [opt for opt in opcoes_equipamentos_cadastrados if opt != "SELECIONE..."], key=f"sel_novos_{v}")
+                if equipamentos_novos_selecionados:
+                    for eq in equipamentos_novos_selecionados:
+                        quantidades_novos[eq] = st.number_input(f"Qtd Novo: {eq}", min_value=1, value=1, step=1, key=f"qtd_n_{eq}_{v}")
             
-            observacao = st.text_area("OBSERVAÇÃO")
-            fotos_arquivos = st.file_uploader("FOTOS DO SERVIÇO (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
-            
-            botao_enviar = st.form_submit_button("REGISTRAR ATENDIMENTO", use_container_width=True)
+            status_velho = st.selectbox("CONDIÇÃO DOS EQUIPAMENTOS VELHOS", ["DEFEITO", "FUNCIONAL", "ANALISE"], key=f"sel_status_velho_{v}")
+
+        st.markdown("")
+        botao_enviar = st.button("REGISTRAR ATENDIMENTO", use_container_width=True, type="primary", key=f"btn_enviar_{v}")
 
         if botao_enviar:
             if not cliente or not endereco or not protocolo or not metragem_cabo:
-                st.error("⚠️ Por favor, preencha todos os campos obrigatórios (Cliente, Endereço, Protocolo e Cabo Utilizado).")
-            elif habilita_troca and (equipamento_novo == "Selecione..." or equipamento_velho == "Selecione..."):
-                st.error("⚠️ Selecione os equipamentos corretos para a troca.")
+                st.error("⚠️ Por favor, preencha todos os campos obrigatórios.")
+            elif habilita_troca and (not equipamentos_novos_selecionados or not equipamentos_velhos_selecionados):
+                st.error("⚠️ Selecione os equipamentos para a troca.")
             else:
                 valor_calculado = calcular_valor_lpu(tipo_servico, metragem_cabo, mercado, observacao, st.session_state.cpf_tecnico)
                 
@@ -701,72 +917,48 @@ else:
                         except Exception as e:
                             st.error(f"Erro ao subir foto {foto.name}: {e}")
                 
-                if habilita_troca:
-                    try:
-                        supabase.table("ESTOQUE").insert({
-                            "equipamento": equipamento_novo,
-                            "serial": "1",
-                            "status": f"INSTALADO - {cliente}",
-                            "localizacao": f"CLIENTE: {cliente}",
-                            "observacao": f"Saída por troca no atendimento (Prot: {protocolo})."
-                        }).execute()
-                        
-                        supabase.table("ESTOQUE").insert({
-                            "equipamento": equipamento_velho,
-                            "serial": "1",
-                            "status": status_velho,
-                            "localizacao": "ESTOQUE CENTRAL",
-                            "observacao": f"Retirado do cliente {cliente} (Prot: {protocolo})."
-                        }).execute()
-                        
-                        supabase.table("HISTORICO_ESTOQUE").insert({
-                            "tipo_movimentacao": "TROCA",
-                            "equipamento": f"Novo: {equipamento_novo} | Velho: {equipamento_velho}",
-                            "serial": "1",
-                            "responsavel": st.session_state.nome_tecnico,
-                            "detalhes": f"Atendimento/Cliente: {cliente} | Protocolo: {protocolo}"
-                        }).execute()
-                    except Exception as est_err:
-                        st.error(f"Erro ao movimentar o estoque na troca: {est_err}")
+                sucesso_registro = registrar_atendimento(
+                    data_execucao=data_execucao,
+                    cliente=cliente,
+                    endereco=endereco,
+                    protocolo=protocolo,
+                    mercado=mercado,
+                    tipo_servico=tipo_servico,
+                    observacao=observacao,
+                    foto_url=caminhos_fotos_atendimento,
+                    nome_tecnico=st.session_state.get("nome_tecnico", "Técnico"),
+                    cpf_tecnico=st.session_state.cpf_tecnico,
+                    metragem_cabo=metragem_cabo,
+                    valor_total=valor_calculado
+                )
                 
-                if registrar_atendimento(
-                    data_execucao, 
-                    cliente, 
-                    endereco, 
-                    protocolo, 
-                    mercado, 
-                    tipo_servico, 
-                    observacao, 
-                    caminhos_fotos_atendimento, 
-                    st.session_state.nome_tecnico, 
-                    st.session_state.cpf_tecnico, 
-                    metragem_cabo,
-                    valor_calculado
-                ):
+                if sucesso_registro:
                     st.success("Atendimento e movimentações registrados com sucesso!")
+                    st.session_state.form_version += 1
+                    st.rerun()
             
-    with aba2: 
-        st.subheader("Lista de Atendimentos")
-        st.caption("💡 **Dica:** Clique em cima de qualquer atendimento abaixo para ver todos os detalhes e ler a **observação por completo** de forma simples.")
+    if aba2 and perms_usuario.get("ve_produtividade", True): 
+        st.subheader("LISTA DE ATENDIMENTOS")
+        st.caption("")
         
         if st.session_state.perfil == "Administrador":
             try:
                 res_tecnicos = supabase.table("TECNICOS").select("nome, cpf").eq("ativo", True).execute()
                 lista_tecnicos = res_tecnicos.data if res_tecnicos.data else []
                 
-                opcoes_tec = {"Todos os Técnicos": "TODOS"}
+                opcoes_tec = {"TODOS OS TÉCNICOS": "TODOS"}
                 for t in lista_tecnicos:
-                    opcoes_tec[t["nome"]] = t["cpf"]
+                    opcoes_tec[t["nome"].upper()] = t["cpf"]
                 
                 col_f1, col_f2 = st.columns([2, 2])
                 with col_f1:
-                    tecnico_selecionado = st.selectbox("Filtrar por Técnico:", list(opcoes_tec.keys()))
+                    tecnico_selecionado = st.selectbox("FILTRAR POR TÉCNICO:", list(opcoes_tec.keys()))
                 with col_f2:
-                    periodo_datas = st.date_input("Filtrar por Período (Data de Execução):", value=[])
+                    periodo_datas = st.date_input("FILTRAR POR PERÍODO (DATA DE EXECUÇÃO):", value=[])
                 
                 query = supabase.table("ATENDIMENTO").select("*").order("data_execucao", desc=True)
                 
-                if tecnico_selecionado != "Todos os Técnicos":
+                if tecnico_selecionado != "TODOS OS TÉCNICOS":
                     cpf_filtro = opcoes_tec[tecnico_selecionado]
                     query = query.eq("cpf_tecnico", cpf_filtro)
                     
@@ -776,9 +968,8 @@ else:
         else:
             col_f1, col_f2 = st.columns([2, 2])
             with col_f2:
-                periodo_datas = st.date_input("Filtrar por Período (Data de Execução):", value=[])
+                periodo_datas = st.date_input("FILTRAR POR PERÍODO (DATA DE EXECUÇÃO):", value=[])
             
-            # ⬇️ FILTRO APLICADO PARA O PERFIL TÉCNICO: APENAS SERVIÇOS INTERNO E EXTERNO ⬇️
             query = supabase.table("ATENDIMENTO").select("*").eq("cpf_tecnico", st.session_state.cpf_tecnico).in_("tipo_servico", ["INTERNO", "EXTERNO"]).order("data_execucao", desc=True)
         
         atendimentos = query.execute()
@@ -803,14 +994,12 @@ else:
                 if 'data_execucao_dt' in df.columns:
                     df = df.drop(columns=['data_execucao_dt'])
             
-            # --- SUBSTITUIÇÃO DA TABELA FIXA POR CARTÕES EXPANSÍVEIS INTERATIVOS ---
             st.markdown("---")
             
-            # Filtra os dados atuais com base no DataFrame filtrado por datas
             ids_validos = df['id'].tolist() if 'id' in df.columns else []
             atendimentos_filtrados = [item for item in atendimentos.data if item.get('id') in ids_validos]
 
-            with st.expander("📂 Atendimentos Cadastrados", expanded=False):
+            with st.expander("ATENDIMENTOS CADASTRADOS", expanded=False):
                 for idx, item in enumerate(atendimentos_filtrados):
                     data_original = item.get('data_execucao', '')
                     try:
@@ -818,31 +1007,29 @@ else:
                     except Exception:
                         data_formatada = data_original
                     
-                    # Título amigável do expansor (ao clicar nele, abre tudo por completo)
-                    label_expander = f"📅 {data_formatada} | 🏷️ Prot: {item.get('protocolo', 'N/A')} | 👤 {item.get('cliente', 'N/A')} | 🔧 {item.get('tipo_servico', 'N/A')}"
+                    label_expander = f"📅 {data_formatada} | 🏷️ PROT: {str(item.get('protocolo', 'N/A')).upper()} | 👤 {str(item.get('cliente', 'N/A')).upper()} | 🔧 {str(item.get('tipo_servico', 'N/A')).upper()}"
                     
                     with st.expander(label_expander):
                         col_det1, col_det2 = st.columns(2)
                         with col_det1:
-                            st.write(f"**Cliente:** {item.get('cliente', 'N/A')}")
-                            st.write(f"**Endereço:** {item.get('endereco', 'N/A')}")
-                            st.write(f"**Protocolo:** {item.get('protocolo', 'N/A')}")
-                            st.write(f"**Mercado:** {item.get('mercado', 'N/A')}")
+                            st.write(f"**CLIENTE:** {str(item.get('cliente', 'N/A')).upper()}")
+                            st.write(f"**ENDEREÇO:** {str(item.get('endereco', 'N/A')).upper()}")
+                            st.write(f"**PROTOCOLO:** {str(item.get('protocolo', 'N/A')).upper()}")
+                            st.write(f"**MERCADO:** {str(item.get('mercado', 'N/A')).upper()}")
                         with col_det2:
-                            st.write(f"**Tipo de Serviço:** {item.get('tipo_servico', 'N/A')}")
-                            st.write(f"**Cabo Utilizado:** {item.get('metragem_cabo', 'N/A')}")
+                            st.write(f"**TIPO DE SERVIÇO:** {str(item.get('tipo_servico', 'N/A')).upper()}")
+                            st.write(f"**CABO UTILIZADO:** {str(item.get('metragem_cabo', 'N/A')).upper()}")
                             if st.session_state.perfil == "Administrador":
-                                st.write(f"**Responsável:** {item.get('responsavel', 'N/A')}")
+                                st.write(f"**RESPONSÁVEL:** {str(item.get('responsavel', 'N/A')).upper()}")
                                 val_tot = item.get('valor_total', 0)
-                                st.write(f"**Valor LPU:** R$ {float(val_tot):,.2f}" if pd.notnull(val_tot) else "R$ 0,00")
+                                st.write(f"**VALOR LPU:** R$ {float(val_tot):,.2f}" if pd.notnull(val_tot) else "R$ 0,00")
                         
                         st.markdown("---")
-                        st.markdown(f"**📝 Observação Completa:**")
-                        # Caixa informativa que expande o texto inteiro sem cortes
-                        st.info(item.get('observacao', 'Nenhuma observação registrada.'))
+                        st.markdown(f"**OBSERVAÇÃO COMPLETA:**")
+                        st.info(str(item.get('observacao', 'Nenhuma observação registrada.')).upper())
             
             st.write("")
-            st.markdown("### 📊 Indicadores e Projeção")
+            st.markdown("INDICADORES E PROJEÇÃO")
             
             try:
                 df_calc = df.copy()
@@ -851,7 +1038,6 @@ else:
                 df_calc['valor_numerico'] = pd.to_numeric(df_calc['valor_total'], errors='coerce').fillna(0.0)
                 df_calc['tipo_servico_upper'] = df_calc['tipo_servico'].astype(str).str.strip().str.upper()
                 
-                # ⬇️ GARANTE QUE APENAS OS SERVIÇOS PRODUTIVOS (INTERNO E EXTERNO) ENTRAM NO CÁLCULO ⬇️
                 df_produtivos = df_calc[~df_calc['tipo_servico_upper'].isin(['IMPRODUTIVO', 'FDS'])]
                 
                 total_servicos_produtivos = len(df_produtivos)
@@ -861,10 +1047,10 @@ else:
                 ticket_medio = (soma_valor_produtivos / total_servicos_produtivos) if total_servicos_produtivos > 0 else 0.0
                 total_geral = soma_valor_produtivos
                 
-                contagem_servicos = df_produtivos['tipo_servico'].value_counts().to_dict()
-                resumo_servicos_str = " | ".join([f"{k}: {v}" for k, v in contagem_servicos.items()])
+                contagem_servicos = df_produtivos['tipo_servico'].astype(str).str.upper().value_counts().to_dict()
+                resumo_servicos_str = " | ".join([f"{str(k).upper()}: {v}" for k, v in contagem_servicos.items()])
                 if not resumo_servicos_str:
-                    resumo_servicos_str = "Nenhum serviço produtivo"
+                    resumo_servicos_str = "NENHUM SERVIÇO PRODUTIVO"
 
                 tabela_html = f"""
                 <div style="overflow-x:auto;">
@@ -900,7 +1086,7 @@ else:
             
             if st.session_state.get("perfil") == "Administrador":
                 st.divider()
-                st.subheader("🖼️ Visualizador de Fotos")
+                st.subheader("VISUALIZADOR DE FOTOS")
                 
                 opcoes_atendimento = {}
                 for item in atendimentos.data:
@@ -910,15 +1096,15 @@ else:
                     except Exception:
                         data_formatada = data_original
                     
-                    label = f"Data: {data_formatada} | Prot: {item.get('protocolo', 'N/A')} | Cliente: {item.get('cliente', 'N/A')}"
+                    label = f"DATA: {data_formatada} | PROT: {str(item.get('protocolo', 'N/A')).upper()} | CLIENTE: {str(item.get('cliente', 'N/A')).upper()}"
                     opcoes_atendimento[label] = item
                     
                 atendimento_selecionado = st.selectbox(
-                    "Selecione um atendimento para visualizar as fotos:", 
-                    ["Selecione..."] + list(opcoes_atendimento.keys())
+                    "SELECIONE UM ATENDIMENTO PARA VISUALIZAR AS FOTOS:", 
+                    ["SELECIONE..."] + list(opcoes_atendimento.keys())
                 )
                 
-                if atendimento_selecionado != "Selecione...":
+                if atendimento_selecionado != "SELECIONE...":
                     dados_selecionados = opcoes_atendimento[atendimento_selecionado]
                     fotos = dados_selecionados.get("foto")
                     
@@ -938,7 +1124,7 @@ else:
                                 with cols[idx]:
                                     try:
                                         res_bytes = supabase.storage.from_("fotos_atendimentos").download(caminho_foto)
-                                        st.image(res_bytes, caption=f"Anexo {idx+1}", use_container_width=True)
+                                        st.image(res_bytes, caption=f"ANEXO {idx+1}", use_container_width=True)
                                     except Exception as e:
                                         st.error(f"Erro ao carregar a foto {idx+1}")
                         else:
@@ -947,15 +1133,15 @@ else:
         else:
             st.info("Nenhum atendimento registrado.")
 
-    with aba3:
-        st.subheader("⚠️ ANÁLISE PRELIMINAR DE RISCO (APR)")
+    if aba3 and perms_usuario.get("ve_apr", True):
+        st.subheader("ANÁLISE PRELIMINAR DE RISCO (APR)")
         
         if st.session_state.get("sucesso_apr"):
             st.success(st.session_state.sucesso_apr)
             st.balloons()
             del st.session_state["sucesso_apr"]
 
-        with st.expander("📂 APRs Cadastradas", expanded=False):
+        with st.expander("APRS CADASTRADAS", expanded=False):
             try:
                 query_aprs = supabase.table("APR").select("id, numero_controle, cpf_tecnico").order("id", desc=True)
                 
@@ -985,11 +1171,11 @@ else:
                     for i, item in enumerate(lista_aprs_data):
                         with cols[i % 4]:
                             num_exibicao = item.get('numero_controle') or str(item['id'])
-                            if st.button(f"📄 APR {num_exibicao}", key=f"btn_apr_{item['id']}"):
+                            if st.button(f"APR {num_exibicao}", key=f"btn_apr_{item['id']}"):
                                 arquivo = gerar_pdf_apr(item['id'])
                                 with open(arquivo, "rb") as f:
                                     st.download_button(
-                                        label="📥 BAIXAR PDF",
+                                        label="BAIXAR PDF",
                                         data=f,
                                         file_name=arquivo,
                                         mime="application/pdf",
@@ -1005,94 +1191,144 @@ else:
         with st.form("form_apr", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
-                data_atividade = st.date_input("Data da Atividade")
-                local_atividade = st.text_input("Local da Atividade")
+                data_atividade = st.date_input("DATA DA ATIVIDADE")
+                local_atividade = st.text_input("LOCAL DA ATIVIDADE")
             with col2:
-                placa_veiculo = st.text_input("Placa do Veículo")
+                placa_veiculo = st.text_input("PLACA DO VEÍCULO")
             
-            st.write("### ✅ CHECKLIST DETALHADO")
+            st.write("CHECKLIST DETALHADO")
             c1, c2 = st.columns(2)
             with c1:
-                uso_cinto = st.checkbox("Cinto de Segurança")
-                uso_capacete = st.checkbox("Capacete Classe B")
-                amarracao_escada = st.checkbox("Amarração da Escada")
-                area_sinalizada = st.checkbox("Sinalização da área")
-                verificacao_geral = st.checkbox("Verificação Geral")
+                uso_cinto = st.checkbox("CINTO DE SEGURANÇA")
+                uso_capacete = st.checkbox("CAPACETE CLASSE B")
+                amarracao_escada = st.checkbox("AMARRAÇÃO DA ESCADA")
+                area_sinalizada = st.checkbox("SINALIZAÇÃO DA ÁREA")
+                verificacao_geral = st.checkbox("VERIFICAÇÃO GERAL")
             with c2:
-                chuva = st.selectbox("Chuva", ["Não", "Sim"])
-                animais_peconhetos = st.selectbox("Animais Peçonhentos", ["Não", "Sim"])
-                poste_energizado = st.selectbox("Poste Energizado?", ["Não", "Sim"])
-                integridade_poste = st.selectbox("Integridade do Poste", ["Bom", "Ruim"])
+                chuva = st.selectbox("CHUVA", ["NÃO", "SIM"])
+                animais_peconhetos = st.selectbox("ANIMAIS PEÇONHENTOS", ["NÃO", "SIM"])
+                poste_energizado = st.selectbox("POSTE ENERGIZADO?", ["NÃO", "SIM"])
+                integridade_poste = st.selectbox("INTEGRIDADE DO POSTE", ["BOM", "RUIM"])
             
             st.divider()
-            houve_paralisacao = st.checkbox("Houve interrupção das atividades?")
+            houve_paralisacao = st.checkbox("HOUVE INTERRUPÇÃO DAS ATIVIDADES?")
             
-            fotos_paralisacao = st.file_uploader("📸 Fotos da ocorrência (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
+            fotos_paralisacao = st.file_uploader("FOTOS DA OCORRÊNCIA (Até 5)", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
             motivo_paralisacao = st.text_area("MOTIVO DA PARALISAÇÃO")
+            
+            st.write("### ✍️ ASSINATURA DO TÉCNICO (Obrigatório desenhar abaixo)")
+            
+            from streamlit_drawable_canvas import st_canvas
+            
+            canvas_result = st_canvas(
+                fill_color="rgba(255, 255, 255, 0)",
+                stroke_width=2,
+                stroke_color="#000000",
+                background_color="#FFFFFF",
+                height=150,
+                width=500,
+                drawing_mode="freedraw",
+                return_image_data=True,
+                key="canvas_assinatura",
+            )
             
             st.write("")
             botao_enviar = st.form_submit_button("REGISTRAR APR", use_container_width=True)
             
             if botao_enviar:
-                caminhos_fotos_salvas = []
-                if fotos_paralisacao:
-                    for foto in fotos_paralisacao[:5]:
-                        try:
-                            timestamp = int(time.time())
-                            caminho = f"fotos/{timestamp}_{foto.name}"
-                            supabase.storage.from_("fotos_atendimentos").upload(caminho, foto.getvalue())
-                            caminhos_fotos_salvas.append(caminho)
-                        except Exception as e:
-                            st.error(f"Erro ao subir foto {foto.name}: {e}")
-                
-                try:
-                    cpf_logado = st.session_state.get("cpf_tecnico", "")
-                    perfil_usuario = st.session_state.get("perfil", "Técnico")
-                    numero_gerado = str(int(time.time()))[-6:] 
-
-                    resposta = supabase.table("APR").insert({
-                        "numero_controle": numero_gerado,
-                        "data_atividade": str(data_atividade),
-                        "local_atividade": local_atividade,
-                        "placa_veiculo": placa_veiculo,
-                        "uso_cinto": bool(uso_cinto),
-                        "uso_capacete": bool(uso_capacete),
-                        "amarracao_escada": bool(amarracao_escada),
-                        "area_sinalizada": bool(area_sinalizada),
-                        "verificacao_geral": bool(verificacao_geral),
-                        "chuva": True if chuva == "Sim" else False,
-                        "animais_peconhetos": True if animais_peconhetos == "Sim" else False,
-                        "poste_energizado": True if poste_energizado == "Sim" else False,
-                        "integridade_poste": integridade_poste,
-                        "houve_paralisacao": bool(houve_paralisacao),
-                        "motivo_paralisacao": motivo_paralisacao,
-                        "foto_paralisacao": caminhos_fotos_salvas,
-                        "cpf_tecnico": cpf_logado,
-                        "perfil": perfil_usuario
-                    }).execute()
+                if canvas_result.image_data is None:
+                    st.error("⚠️ Por favor, faça a assinatura no quadro antes de registrar a APR.")
+                else:
+                    caminhos_fotos_salvas = []
+                    if fotos_paralisacao:
+                        for foto in fotos_paralisacao[:5]:
+                            try:
+                                timestamp = int(time.time())
+                                caminho = f"fotos/{timestamp}_{foto.name}"
+                                supabase.storage.from_("fotos_atendimentos").upload(caminho, foto.getvalue())
+                                caminhos_fotos_salvas.append(caminho)
+                            except Exception as e:
+                                st.error(f"Erro ao subir foto {foto.name}: {e}")
                     
-                    st.session_state["sucesso_apr"] = f"APR {numero_gerado} registrada com sucesso!"
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar APR no banco: {e}")
+                    caminho_assinatura_salva = ""
+                    try:
+                        import numpy as np
+                        from PIL import Image as PILImage
+                        import io
+                        
+                        img_data = canvas_result.image_data
+                        
+                        if img_data is not None:
+                            img_array = img_data.astype(np.uint8)
+                            pil_img = PILImage.fromarray(img_array)
+                            
+                            if pil_img.mode in ('RGBA', 'LA') or (pil_img.mode == 'P' and 'transparency' in pil_img.info):
+                                fundo_branco = PILImage.new("RGB", pil_img.size, (255, 255, 255))
+                                fundo_branco.paste(pil_img, mask=pil_img.split()[3])
+                                pil_img_final = fundo_branco
+                            else:
+                                pil_img_final = pil_img.convert("RGB")
+                            
+                            buffered = io.BytesIO()
+                            pil_img_final.save(buffered, format="JPEG", quality=95)
+                            img_bytes = buffered.getvalue()
+                            
+                            timestamp = int(time.time())
+                            caminho_assinatura_salva = f"assinaturas/assinatura_{timestamp}.jpg"
+                            
+                            supabase.storage.from_("fotos_atendimentos").upload(caminho_assinatura_salva, img_bytes)
+                    except Exception as e:
+                        st.error(f"Erro ao salvar a assinatura: {e}")
+                    
+                    try:
+                        cpf_logado = st.session_state.get("cpf_tecnico", "")
+                        perfil_usuario = st.session_state.get("perfil", "Técnico")
+                        numero_gerado = str(int(time.time()))[-6:] 
 
-    with aba4:
-        st.subheader("📦 GESTÃO DE ESTOQUE E MOVIMENTAÇÕES")
+                        resposta = supabase.table("APR").insert({
+                            "numero_controle": numero_gerado,
+                            "data_atividade": str(data_atividade),
+                            "local_atividade": local_atividade.upper(),
+                            "placa_veiculo": placa_veiculo.upper(),
+                            "uso_cinto": bool(uso_cinto),
+                            "uso_capacete": bool(uso_capacete),
+                            "amarracao_escada": bool(amarracao_escada),
+                            "area_sinalizada": bool(area_sinalizada),
+                            "verificacao_geral": bool(verificacao_geral),
+                            "chuva": True if chuva == "SIM" else False,
+                            "animais_peconhetos": True if animais_peconhetos == "SIM" else False,
+                            "poste_energizado": True if poste_energizado == "SIM" else False,
+                            "integridade_poste": integridade_poste.upper(),
+                            "houve_paralisacao": bool(houve_paralisacao),
+                            "motivo_paralisacao": motivo_paralisacao.upper(),
+                            "foto_paralisacao": caminhos_fotos_salvas,
+                            "assinatura_url": caminho_assinatura_salva,
+                            "cpf_tecnico": cpf_logado,
+                            "perfil": perfil_usuario.upper()
+                        }).execute()
+                        
+                        st.session_state["sucesso_apr"] = f"APR {numero_gerado} registrada com sucesso!"
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar APR no banco: {e}")
+
+    if aba4 and perms_usuario.get("ve_estoque", True):
+        st.subheader("GESTÃO DE ESTOQUE E MOVIMENTAÇÕES")
         
-        opcoes_equipamentos_cadastrados = ["Selecione..."]
+        opcoes_equipamentos_cadastrados = ["SELECIONE..."]
         try:
             res_cad = supabase.table("CADASTRO_EQUIPAMENTOS").select("codigo, descricao").execute()
             if res_cad.data:
-                opcoes_equipamentos_cadastrados += [f"{item['codigo']} - {item['descricao']}" for item in res_cad.data]
+                opcoes_equipamentos_cadastrados += [f"{item['codigo']} - {item['descricao']}".upper() for item in res_cad.data]
         except Exception:
             pass
 
         def renderizar_saldo_e_historico():
-            st.markdown("### Saldo Atual do Estoque e Histórico")
+            st.markdown("SALDO ATUAL DO ESTOQUE E HISTÓRICO")
             try:
                 res_estoque = supabase.table("ESTOQUE").select("*").execute()
                 if res_estoque.data:
-                    st.write("#### 📊 Itens Cadastrados no Estoque")
+                    st.write("ITENS CADASTRADOS NO ESTOQUE")
                     df_est = pd.DataFrame(res_estoque.data)
                     
                     if 'serial' in df_est.columns:
@@ -1108,7 +1344,7 @@ else:
                 st.divider()
                 res_hist = supabase.table("HISTORICO_ESTOQUE").select("*").order("created_at", desc=True).execute()
                 if res_hist.data:
-                    st.write("#### 📜 Histórico de Movimentações")
+                    st.write("HISTÓRICO DE MOVIMENTAÇÕES")
                     df_hist = pd.DataFrame(res_hist.data)
                     
                     colunas_ocultar_hist = ['id', 'created_at', 'serial']
@@ -1121,22 +1357,22 @@ else:
                 st.error(f"Erro ao carregar dados de estoque: {e}")
 
         if st.session_state.perfil == "Administrador":
-            sub_aba1, sub_aba2, sub_aba3 = st.tabs(["➕ Entrada de Mercadoria", "🔄 Troca de Equipamento", "📋 Saldo e Histórico"])
+            opcao_estoque = sub_menu_estoque if sub_menu_estoque else "Entrada de Mercadoria"
             
-            with sub_aba1:
-                st.markdown("### Registrar Entrada de Novos Itens / Equipamentos")
+            if opcao_estoque == "Entrada de Mercadoria":
+                st.markdown("REGISTRAR ENTRADA DE NOVOS ITENS / EQUIPAMENTOS")
                 with st.form("form_entrada_estoque", clear_on_submit=True):
                     ec1, ec2 = st.columns(2)
                     with ec1:
-                        item_selecionado = st.selectbox("Nome do Equipamento / Material", opcoes_equipamentos_cadastrados)
-                        quantidade = st.number_input("Quantidade", min_value=1, value=1, step=1)
+                        item_selecionado = st.selectbox("NOME DO EQUIPAMENTO / MATERIAL", opcoes_equipamentos_cadastrados)
+                        quantidade = st.number_input("QUANTIDADE", min_value=1, value=1, step=1)
                     with ec2:
-                        origem_nota = st.text_input("Nota Fiscal / Fornecedor / Origem")
+                        origem_nota = st.text_input("NOTA FISCAL / FORNECEDOR / ORIGEM")
                     
-                    obs_entrada = st.text_area("Observações da Entrada")
+                    obs_entrada = st.text_area("OBSERVAÇÕES DA ENTRADA")
                     
                     if st.form_submit_button("REGISTRAR ENTRADA", use_container_width=True):
-                        if item_selecionado == "Selecione..." or not quantidade or quantidade < 1:
+                        if item_selecionado == "SELECIONE..." or not quantidade or quantidade < 1:
                             st.error("⚠️ Selecione o equipamento e informe uma quantidade válida.")
                         else:
                             try:
@@ -1145,338 +1381,850 @@ else:
                                     "serial": str(quantidade),
                                     "status": "DISPONIVEL",
                                     "localizacao": "ESTOQUE CENTRAL",
-                                    "observacao": obs_entrada
+                                    "observacao": obs_entrada.upper()
                                 }).execute()
                                 
                                 supabase.table("HISTORICO_ESTOQUE").insert({
                                     "tipo_movimentacao": "ENTRADA",
                                     "equipamento": item_selecionado,
                                     "serial": str(quantidade),
-                                    "responsavel": st.session_state.nome_tecnico,
-                                    "detalhes": f"Entrada de {quantidade} un. Origem: {obs_entrada or 'N/A'}"
+                                    "responsavel": st.session_state.nome_tecnico.upper(),
+                                    "detalhes": f"Entrada de {quantidade} un. Origem: {obs_entrada or 'N/A'}".upper()
                                 }).execute()
                                 
                                 st.success("Entrada registrada com sucesso no estoque!")
                             except Exception as e:
                                 st.error(f"Erro ao registrar entrada: {e}")
 
-            with sub_aba2:
-                st.markdown("### Registrar Troca de Equipamento (Cliente)")
+            elif opcao_estoque == "Troca de Equipamento":
+                st.markdown("REGISTRAR TROCA DE EQUIPAMENTO (CLIENTE)")
                 st.info("O equipamento **novo** sai do estoque para o cliente, e o equipamento **velho** (defeituoso/retirado) entra no estoque.")
                 
                 with st.form("form_troca_equipamento", clear_on_submit=True):
                     tc1, tc2 = st.columns(2)
                     with tc1:
-                        cliente_troca = st.text_input("Nome do Cliente / Protocolo")
-                        equipamento_novo = st.selectbox("Nome do Equipamento Novo", opcoes_equipamentos_cadastrados, key="eq_novo")
+                        cliente_troca = st.text_input("NOME DO CLIENTE / PROTOCOLO")
+                        equipamentos_novos_multi = st.multiselect("NOME DOS EQUIPAMENTOS NOVOS", [opt for opt in opcoes_equipamentos_cadastrados if opt != "SELECIONE..."], key="eq_novo_multi")
                     with tc2:
-                        equipamento_velho = st.selectbox("Nome do Equipamento Velho / Retirado", opcoes_equipamentos_cadastrados, key="eq_velho")
-                        status_velho = st.selectbox("Condição do Equipamento Velho", ["DEFEITO", "FUNCIONAL", "ANALISE"])
+                        equipamentos_velhos_multi = st.multiselect("NOME DOS EQUIPAMENTOS VELHOS / RETIRADOS", [opt for opt in opcoes_equipamentos_cadastrados if opt != "SELECIONE..."], key="eq_velho_multi")
+                        status_velho = st.selectbox("CONDIÇÃO DOS EQUIPAMENTOS VELHOS", ["DEFEITO", "FUNCIONAL", "ANALISE"])
                     
-                    motivo_troca = st.text_area("Motivo da Troca (ex: Queimado por raio, lentidão)")
+                    motivo_troca = st.text_area("MOTIVO DA TROCA (ex: Queimado por raio, lentidão)")
                     
                     if st.form_submit_button("CONFIRMAR TROCA DE EQUIPAMENTOS", use_container_width=True):
-                        if not cliente_troca or equipamento_novo == "Selecione..." or equipamento_velho == "Selecione...":
+                        if not cliente_troca or not equipamentos_novos_multi or not equipamentos_velhos_multi:
                             st.error("⚠️ Preencha os campos obrigatórios e selecione os equipamentos corretamente.")
                         else:
                             try:
-                                supabase.table("ESTOQUE").insert({
-                                    "equipamento": equipamento_novo,
-                                    "serial": "1",
-                                    "status": f"INSTALADO - {cliente_troca}",
-                                    "localizacao": f"CLIENTE: {cliente_troca}",
-                                    "observacao": f"Saída por troca. Motivo: {motivo_troca}"
-                                }).execute()
+                                for eq_novo in equipamentos_novos_multi:
+                                    supabase.table("ESTOQUE").insert({
+                                        "equipamento": eq_novo,
+                                        "serial": "1",
+                                        "status": f"INSTALADO - {cliente_troca}".upper(),
+                                        "localizacao": f"CLIENTE: {cliente_troca}".upper(),
+                                        "observacao": f"Saída por troca. Motivo: {motivo_troca}".upper()
+                                    }).execute()
                                 
-                                supabase.table("ESTOQUE").insert({
-                                    "equipamento": equipamento_velho,
-                                    "serial": "1",
-                                    "status": status_velho,
-                                    "localizacao": "ESTOQUE CENTRAL",
-                                    "observacao": f"Retirado do cliente {cliente_troca}. Motivo: {motivo_troca}"
-                                }).execute()
+                                for eq_velho in equipamentos_velhos_multi:
+                                    supabase.table("ESTOQUE").insert({
+                                        "equipamento": eq_velho,
+                                        "serial": "1",
+                                        "status": status_velho,
+                                        "localizacao": "ESTOQUE CENTRAL",
+                                        "observacao": f"Retirado do cliente {cliente_troca}. Motivo: {motivo_troca}".upper()
+                                    }).execute()
                                 
+                                str_novos = " | ".join(equipamentos_novos_multi)
+                                str_velhos = " | ".join(equipamentos_velhos_multi)
                                 supabase.table("HISTORICO_ESTOQUE").insert({
                                     "tipo_movimentacao": "TROCA",
-                                    "equipamento": f"Novo: {equipamento_novo} | Velho: {equipamento_velho}",
+                                    "equipamento": f"Novos: {str_novos} | Velhos: {str_velhos}".upper(),
                                     "serial": "1",
-                                    "responsavel": st.session_state.nome_tecnico,
-                                    "detalhes": f"Cliente: {cliente_troca} | Motivo: {motivo_troca}"
+                                    "responsavel": st.session_state.nome_tecnico.upper(),
+                                    "detalhes": f"Cliente: {cliente_troca} | Motivo: {motivo_troca}".upper()
                                 }).execute()
                                 
-                                st.success("Troca registrada com sucesso! Equipamento novo baixado e velho adicionado ao estoque.")
+                                st.success("Troca registrada com sucesso! Equipamentos novos baixados e velhos adicionados ao estoque.")
                             except Exception as e:
                                 st.error(f"Erro ao processar troca: {e}")
 
-            with sub_aba3:
+            elif opcao_estoque == "Saldo e Histórico":
                 renderizar_saldo_e_historico()
         else:
             renderizar_saldo_e_historico()
 
-    if aba5 is not None: 
-        with aba5:
-            st.subheader("⚙️ PAINEL ADMINISTRATIVO")
+    if aba5 and (perms_usuario.get("ve_admin", False) or st.session_state.perfil == "Administrador"): 
+        st.subheader("PAINEL ADMINISTRATIVO")
+        
+        if st.session_state.perfil == "Administrador":
+            senha_admin = "tR294xmvYmyYhVB"
+        else:
+            senha_admin = st.text_input("DIGITE LA SENHA MESTRA:", type="password", key="admin_senha")
+
+        if senha_admin == "tR294xmvYmyYhVB":
+            opcao_admin = sub_menu_admin if sub_menu_admin else "Perfis de Usuários"
+            lista_perfis_cadastrados = obter_perfis_cadastrados()
             
-            opcao_admin = st.radio("O que deseja gerenciar?", ["Perfis de Usuários", "Cadastrar Novo Usuário", "💰 Tabela LPU", "📦 Tabela LPU DELIVERY", "📋 Cadastro de Equipamento"], horizontal=True)
-            senha_admin = st.text_input("DIGITE A SENHA MESTRA:", type="password", key="admin_senha")
 
-            if senha_admin == "@tl3t1c0":
-                if opcao_admin == "Perfis de Usuários":
-                    st.write("### 👤 Gerenciamento de Perfis e LPU por Técnico")
-                    try:
-                        dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
-                        df_tecnicos = pd.DataFrame(dados_tecnicos.data)
+            # --- ABA DE GERENCIAMENTO DE PERMISSÕES (CORREÇÃO DEFINITIVA) ---
+            if opcao_admin == "Gerenciar Permissões":
+                st.write("### 🔒 CONTROLE DE ACESSO POR PERFIL (RBAC)")
+                st.info("Para criar um novo perfil, clique na última linha vazia abaixo e digite o nome do perfil. Depois marque as permissões e clique em **SALVAR PERMISSÕES**.")
+                try:
+                    dados_perms = supabase.table("PERMISSOES").select("*").execute()
+                    
+                    if not dados_perms.data:
+                        df_perms = pd.DataFrame([
+                            {"id": 1, "perfil": "Técnico", "ve_formulario": True, "ve_produtividade": True, "ve_apr": True, "ve_estoque": False, "ve_admin": False, "ve_colaborador": True},
+                            {"id": 2, "perfil": "Administrador", "ve_formulario": True, "ve_produtividade": True, "ve_apr": True, "ve_estoque": True, "ve_admin": True, "ve_colaborador": True}
+                        ])
+                    else:
+                        df_perms = pd.DataFrame(dados_perms.data)
+
+                    # Seleciona estritamente as colunas necessárias na ordem correta
+                    colunas_exibicao = ["id", "perfil", "ve_formulario", "ve_produtividade", "ve_apr", "ve_estoque", "ve_admin", "ve_colaborador"]
+                    for col in colunas_exibicao:
+                        if col not in df_perms.columns:
+                            df_perms[col] = False if col not in ["perfil", "id"] else ""
+
+                    df_perms = df_perms[colunas_exibicao]
+
+                    config_col_perms = {
+                        "id": None,
+                        "perfil": st.column_config.TextColumn("Perfil", required=True),
+                        "ve_formulario": st.column_config.CheckboxColumn("Ver Formulário", default=True),
+                        "ve_produtividade": st.column_config.CheckboxColumn("Ver Produtividade", default=True),
+                        "ve_apr": st.column_config.CheckboxColumn("Ver APR", default=True),
+                        "ve_estoque": st.column_config.CheckboxColumn("Ver Estoque", default=False),
+                        "ve_admin": st.column_config.CheckboxColumn("Ver Admin", default=False),
+                        "ve_colaborador": st.column_config.CheckboxColumn("Ver Colaborador", default=True)
+                    }
+
+                    df_edit_perms = st.data_editor(
+                        df_perms, 
+                        use_container_width=True, 
+                        column_config=config_col_perms, 
+                        disabled=["id"],
+                        num_rows="dynamic",
+                        key="editor_permissoes_perfis"
+                    )
+
+                    if st.button("SALVAR PERMISSÕES", use_container_width=True):
+                        registros_salvos = 0
                         
-                        if "lpu_atribuida" not in df_tecnicos.columns:
-                            df_tecnicos["lpu_atribuida"] = "LPU Padrão"
-                        else:
-                            df_tecnicos["lpu_atribuida"] = df_tecnicos["lpu_atribuida"].fillna("LPU Padrão")
-                            df_tecnicos["lpu_atribuida"] = df_tecnicos["lpu_atribuida"].replace("", "LPU Padrão")
+                        # Itera linha a linha convertendo os dados explicitamente para tipos nativos do Python
+                        for _, row in df_edit_perms.iterrows():
+                            perfil_nome = str(row["perfil"]).strip() if pd.notnull(row["perfil"]) else ""
                             
-                        config_colunas_tec = {
-                            "id": None,
-                            "created_at": None,
-                            "primeiro_acesso": None,
-                            "nome": st.column_config.TextColumn("Nome", required=True),
-                            "cpf": st.column_config.TextColumn("CPF", required=True),
-                            "email": st.column_config.TextColumn("E-mail"),
-                            "telefone": st.column_config.TextColumn("Telefone"),
-                            "senha": st.column_config.TextColumn("Senha"),
-                            "ativo": st.column_config.CheckboxColumn("Ativo"),
-                            "perfil": st.column_config.SelectboxColumn("Perfil", options=["Técnico", "Administrador"]),
-                            "lpu_atribuida": st.column_config.SelectboxColumn("LPU Atribuída", options=["LPU Padrão", "DELIVERY"], required=True)
-                        }
+                            if not perfil_nome or perfil_nome.lower() in ["nan", "none", ""]:
+                                continue
+                            
+                            payload = {
+                                "perfil": str(perfil_nome),
+                                "ve_formulario": bool(row["ve_formulario"]) if pd.notnull(row["ve_formulario"]) else True,
+                                "ve_produtividade": bool(row["ve_produtividade"]) if pd.notnull(row["ve_produtividade"]) else True,
+                                "ve_apr": bool(row["ve_apr"]) if pd.notnull(row["ve_apr"]) else True,
+                                "ve_estoque": bool(row["ve_estoque"]) if pd.notnull(row["ve_estoque"]) else False,
+                                "ve_admin": bool(row["ve_admin"]) if pd.notnull(row["ve_admin"]) else False,
+                                "ve_colaborador": bool(row["ve_colaborador"]) if pd.notnull(row["ve_colaborador"]) else True
+                            }
 
-                        edited_df = st.data_editor(
-                            df_tecnicos, 
-                            use_container_width=True,
-                            column_config=config_colunas_tec,
-                            disabled=["id", "created_at", "primeiro_acesso"]
-                        )
-
-                        if st.button("SALVAR PERFIS", use_container_width=True):
-                            for index, row in edited_df.iterrows():
-                                lpu_val = row.get("lpu_atribuida")
-                                if pd.isna(lpu_val) or not lpu_val:
-                                    lpu_val = "LPU Padrão"
-                                    
-                                supabase.table("TECNICOS").update({
-                                    "nome": row["nome"],
-                                    "cpf": row["cpf"],
-                                    "email": row["email"],
-                                    "telefone": row["telefone"],
-                                    "senha": row["senha"],
-                                    "ativo": row["ativo"],
-                                    "perfil": row["perfil"],
-                                    "lpu_atribuida": lpu_val
-                                }).eq("id", row["id"]).execute()
-                            st.success("Perfis atualizados com sucesso!")
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao carregar perfis: {e}")
-
-                elif opcao_admin == "Cadastrar Novo Usuário":
-                    st.write("### ➕ Cadastro de Novo Técnico / Administrador")
-                    with st.form("form_cad_admin", clear_on_submit=True):
-                        c_nome = st.text_input("Nome Completo")
-                        c_cpf = st.text_input("CPF (somente números)")
-                        c_email = st.text_input("E-mail")
-                        c_telefone = st.text_input("Telefone")
-                        c_senha = st.text_input("Senha Inicial", value="123456", type="password")
-                        c_perfil = st.selectbox("Perfil de Acesso", ["Técnico", "Administrador"])
-                        c_lpu = st.selectbox("LPU Atribuída", ["LPU Padrão", "DELIVERY"])
-                        
-                        if st.form_submit_button("CADASTRAR NOVO USUÁRIO", use_container_width=True):
-                            if not c_nome or not c_cpf or not c_senha:
-                                st.error("⚠️ Preencha os campos obrigatórios (Nome, CPF e Senha).")
+                            id_val = row["id"]
+                            
+                            # Se a linha já existir no banco (tem id) faz UPDATE, senão faz INSERT
+                            if pd.notnull(id_val) and str(id_val).strip() != "" and str(id_val).lower() != "nan":
+                                supabase.table("PERMISSOES").update(payload).eq("id", int(id_val)).execute()
                             else:
+                                supabase.table("PERMISSOES").insert(payload).execute()
+                                
+                            registros_salvos += 1
+
+                        if registros_salvos > 0:
+                            st.success("Permissões e Perfis salvos com sucesso!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.warning("Nenhum perfil válido preenchido.")
+
+                except Exception as e:
+                    st.error(f"Erro ao gerenciar permissões: {e}")
+
+            elif opcao_admin == "Perfis de Usuários":
+                st.write("GERENCIAMENTO DE PERFIS E LPU POR TÉCNICO")
+                try:
+                    dados_tecnicos = supabase.table("TECNICOS").select("*").execute()
+                    df_tecnicos = pd.DataFrame(dados_tecnicos.data)
+                    
+                    if "lpu_atribuida" not in df_tecnicos.columns:
+                        df_tecnicos["lpu_atribuida"] = "LPU Padrão"
+                    else:
+                        df_tecnicos["lpu_atribuida"] = df_tecnicos["lpu_atribuida"].fillna("LPU Padrão")
+                        df_tecnicos["lpu_atribuida"] = df_tecnicos["lpu_atribuida"].replace("", "LPU Padrão")
+
+                    if "telegram_chat_id" not in df_tecnicos.columns:
+                        df_tecnicos["telegram_chat_id"] = ""
+                    else:
+                        df_tecnicos["telegram_chat_id"] = df_tecnicos["telegram_chat_id"].fillna("")
+
+                    if "data_nascimento" not in df_tecnicos.columns:
+                        df_tecnicos["data_nascimento"] = ""
+                    else:
+                        df_tecnicos["data_nascimento"] = df_tecnicos["data_nascimento"].fillna("")
+                        
+                    config_colunas_tec = {
+                        "id": None,
+                        "created_at": None,
+                        "primeiro_acesso": None,
+                        "nome": st.column_config.TextColumn("Nome", required=True),
+                        "cpf": st.column_config.TextColumn("CPF", required=True),
+                        "email": st.column_config.TextColumn("E-mail"),
+                        "telefone": st.column_config.TextColumn("Telefone"),
+                        "telegram_chat_id": st.column_config.TextColumn("Chat ID Telegram"),
+                        "data_nascimento": st.column_config.TextColumn("Data de Nascimento"),
+                        "senha": st.column_config.TextColumn("Senha"),
+                        "ativo": st.column_config.CheckboxColumn("Ativo"),
+                        "perfil": st.column_config.SelectboxColumn("Perfil", options=lista_perfis_cadastrados, required=True),
+                        "lpu_atribuida": st.column_config.SelectboxColumn("LPU Atribuída", options=["LPU Padrão", "DELIVERY", "LPU - MEI", "LPU DELIVERY - MEI"], required=True)
+                    }
+
+                    edited_df = st.data_editor(
+                        df_tecnicos, 
+                        use_container_width=True,
+                        column_config=config_colunas_tec,
+                        disabled=["id", "created_at", "primeiro_acesso"]
+                    )
+
+                    if st.button("SALVAR PERFIS", use_container_width=True):
+                        for index, row in edited_df.iterrows():
+                            lpu_val = row.get("lpu_atribuida")
+                            if pd.isna(lpu_val) or not lpu_val:
+                                lpu_val = "LPU Padrão"
+                                
+                            supabase.table("TECNICOS").update({
+                                "nome": row["nome"].upper() if pd.notnull(row["nome"]) else row["nome"],
+                                "cpf": row["cpf"],
+                                "email": row["email"],
+                                "telefone": row["telefone"],
+                                "telegram_chat_id": row["telegram_chat_id"],
+                                "data_nascimento": row["data_nascimento"],
+                                "senha": row["senha"],
+                                "ativo": row["ativo"],
+                                "perfil": row["perfil"],
+                                "lpu_atribuida": lpu_val
+                            }).eq("id", row["id"]).execute()
+                        st.success("Perfis atualizados com sucesso!")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao carregar perfis: {e}")
+
+            elif opcao_admin == "Cadastrar Novo Usuário":
+                st.write("### CADASTRO DE NOVO TÉCNICO / ADMINISTRADOR")
+                with st.form("form_cad_admin", clear_on_submit=True):
+                    c_nome = st.text_input("NOME COMPLETO")
+                    c_cpf = st.text_input("CPF (somente números)")
+                    c_email = st.text_input("E-MAIL")
+                    c_telefone = st.text_input("TELEFONE")
+                    c_telegram = st.text_input("CHAT ID DO TELEGRAM (Apenas números)")
+                    c_nascimento = st.text_input("DATA DE NASCIMENTO (Ex: DD/MM/AAAA ou AAAA-MM-DD)")
+                    c_senha = st.text_input("SENHA INICIAL", value="123456", type="password")
+                    c_perfil = st.selectbox("PERFIL DE ACESSO", lista_perfis_cadastrados)
+                    c_lpu = st.selectbox("LPU ATRIBUÍDA", ["LPU Padrão", "DELIVERY", "LPU - MEI", "LPU DELIVERY - MEI"])
+                    
+                    if st.form_submit_button("CADASTRAR NOVO USUÁRIO", use_container_width=True):
+                        if not c_nome or not c_cpf or not c_senha:
+                            st.error("⚠️ Preencha os campos obrigatórios (Nome, CPF e Senha).")
+                        else:
+                            try:
+                                # Trata a data de nascimento com segurança
+                                data_formatada_banco = None
+                                if c_nascimento and str(c_nascimento).strip() != "":
+                                    c_nascimento_limpo = str(c_nascimento).strip()
+                                    if "/" in c_nascimento_limpo:
+                                        partes = c_nascimento_limpo.split("/")
+                                        if len(partes) == 3:
+                                            dia, mes, ano = partes
+                                            if len(ano) == 4:
+                                                data_formatada_banco = f"{ano}-{mes}-{dia}"
+                                    else:
+                                        data_formatada_banco = c_nascimento_limpo
+
+                                # Trata o Chat ID do Telegram para garantir que seja número ou None
+                                telegram_val = None
+                                if c_telegram and str(c_telegram).strip() != "":
+                                    try:
+                                        telegram_val = int(str(c_telegram).strip())
+                                    except ValueError:
+                                        pass
+
+                                existe = supabase.table("TECNICOS").select("cpf").eq("cpf", c_cpf).execute()
+                                if existe.data:
+                                    st.error("⚠️ Este CPF já está cadastrado!")
+                                else:
+                                    payload_novo_usuario = {
+                                        "nome": c_nome.upper(), 
+                                        "cpf": str(c_cpf).strip(), 
+                                        "email": str(c_email).strip() if c_email else None, 
+                                        "telefone": str(c_telefone).strip() if c_telefone else None, 
+                                        "telegram_chat_id": telegram_val,
+                                        "data_nascimento": data_formatada_banco if data_formatada_banco else None,
+                                        "senha": str(c_senha).strip(), 
+                                        "perfil": str(c_perfil),
+                                        "lpu_atribuida": str(c_lpu),
+                                        "ativo": True,
+                                        "primeiro_acesso": True if c_senha == "123456" else False
+                                    }
+
+                                    supabase.table("TECNICOS").insert(payload_novo_usuario).execute()
+                                    st.success(f"Usuário {c_nome.upper()} cadastrado com sucesso!")
+                            except Exception as e:
+                                st.error(f"Erro ao cadastrar: {e}")
+
+            elif opcao_admin == "Tabela LPU":
+                st.write("GERENCIAMENTO DA LPU - FIELD")
+                try:
+                    dados_lpu = supabase.table("LPU").select("*").execute()
+                    
+                    if not dados_lpu.data:
+                        df_lpu = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
+                    else:
+                        df_lpu = pd.DataFrame(dados_lpu.data)
+                    
+                    configuracao_colunas = {
+                        "id": None,
+                        "created_at": None,
+                        "servico": st.column_config.TextColumn("Serviço", required=True),
+                        "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
+                        "descricao": st.column_config.TextColumn("Descrição"),
+                        "min_metragem": st.column_config.NumberColumn("Mín Metragem", min_value=0.0),
+                        "max_metragem": st.column_config.NumberColumn("Máx Metragem", min_value=0.0)
+                    }
+                    
+                    df_editada_lpu = st.data_editor(
+                        df_lpu, 
+                        use_container_width=True, 
+                        num_rows="dynamic",
+                        column_config=configuracao_colunas,
+                        disabled=["id", "created_at"],
+                        key="editor_tabela_lpu_field"
+                    )
+
+                    if st.button("SALVAR LPU", use_container_width=True, key="btn_salvar_lpu_field"):
+                        with st.spinner("Salvando..."):
+                            for index, row in df_editada_lpu.iterrows():
+                                servico_val = row.get("servico")
+                                valor_val = row.get("valor")
+                                
+                                if not servico_val or pd.isna(servico_val):
+                                    continue
+                                    
+                                id_val = row.get("id")
+                                descricao_val = row.get("descricao")
+                                min_m_val = row.get("min_metragem")
+                                max_m_val = row.get("max_metragem")
+                                
+                                dados_para_salvar = {
+                                    "servico": str(servico_val).upper(),
+                                    "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
+                                    "descricao": str(descricao_val).upper() if pd.notnull(descricao_val) and descricao_val is not None else None,
+                                    "min_metragem": float(min_m_val) if pd.notnull(min_m_val) and min_m_val is not None else None,
+                                    "max_metragem": float(max_m_val) if pd.notnull(max_m_val) and max_m_val is not None else None
+                                }
+                                
+                                if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                    supabase.table("LPU").update(dados_para_salvar).eq("id", id_val).execute()
+                                else:
+                                    supabase.table("LPU").insert(dados_para_salvar).execute()
+                                    
+                            st.success("Tabela LPU atualizada com sucesso!")
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao acessar tabela LPU: {e}")
+
+            elif opcao_admin == "Tabela LPU Delivery":
+                st.write("### GERENCIAMENTO DA LPU - DELIVERY")
+                try:
+                    dados_lpu_deliv = supabase.table("LPU DELIVERY").select("*").execute()
+                    
+                    if not dados_lpu_deliv.data:
+                        df_lpu_deliv = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
+                    else:
+                        df_lpu_deliv = pd.DataFrame(dados_lpu_deliv.data)
+                    
+                    configuracao_colunas_deliv = {
+                        "id": None,
+                        "created_at": None,
+                        "servico": st.column_config.TextColumn("Serviço", required=True),
+                        "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
+                        "descricao": st.column_config.TextColumn("Descrição"),
+                        "min_metragem": st.column_config.NumberColumn("Mín Metragem", min_value=0.0),
+                        "max_metragem": st.column_config.NumberColumn("Máx Metragem", min_value=0.0)
+                    }
+                    
+                    df_editada_lpu_deliv = st.data_editor(
+                        df_lpu_deliv, 
+                        use_container_width=True, 
+                        num_rows="dynamic",
+                        column_config=configuracao_colunas_deliv,
+                        disabled=["id", "created_at"],
+                        key="editor_tabela_lpu_delivery"
+                    )
+
+                    if st.button("SALVAR LPU DELIVERY", use_container_width=True, key="btn_salvar_lpu_delivery"):
+                        with st.spinner("Salvando..."):
+                            for index, row in df_editada_lpu_deliv.iterrows():
+                                servico_val = row.get("servico")
+                                valor_val = row.get("valor")
+                                
+                                if not servico_val or pd.isna(servico_val):
+                                    continue
+                                    
+                                id_val = row.get("id")
+                                descricao_val = row.get("descricao")
+                                min_m_val = row.get("min_metragem")
+                                max_m_val = row.get("max_metragem")
+                                
+                                dados_para_salvar = {
+                                    "servico": str(servico_val).upper(),
+                                    "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
+                                    "descricao": str(descricao_val).upper() if pd.notnull(descricao_val) and descricao_val is not None else None,
+                                    "min_metragem": float(min_m_val) if pd.notnull(min_m_val) and min_m_val is not None else None,
+                                    "max_metragem": float(max_m_val) if pd.notnull(max_m_val) and max_m_val is not None else None
+                                }
+                                
+                                if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                    supabase.table("LPU DELIVERY").update(dados_para_salvar).eq("id", id_val).execute()
+                                else:
+                                    supabase.table("LPU DELIVERY").insert(dados_para_salvar).execute()
+                                    
+                            st.success("Tabela LPU DELIVERY atualizada com sucesso!")
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao acessar tabela LPU DELIVERY: {e}")
+
+            elif opcao_admin == "Tabela LPU - MEI":
+                st.write("### GERENCIAMENTO DA LPU - MEI")
+                try:
+                    dados_lpu_mei = supabase.table("LPU_MEI").select("*").execute()
+                    
+                    if not dados_lpu_mei.data:
+                        df_lpu_mei = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
+                    else:
+                        df_lpu_mei = pd.DataFrame(dados_lpu_mei.data)
+                    
+                    configuracao_colunas_mei = {
+                        "id": None,
+                        "created_at": None,
+                        "servico": st.column_config.TextColumn("Serviço", required=True),
+                        "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
+                        "descricao": st.column_config.TextColumn("Descrição"),
+                        "min_metragem": st.column_config.NumberColumn("Mín Metragem", min_value=0.0),
+                        "max_metragem": st.column_config.NumberColumn("Máx Metragem", min_value=0.0)
+                    }
+                    
+                    df_editada_lpu_mei = st.data_editor(
+                        df_lpu_mei, 
+                        use_container_width=True, 
+                        num_rows="dynamic",
+                        column_config=configuracao_colunas_mei,
+                        disabled=["id", "created_at"],
+                        key="editor_tabela_lpu_mei"
+                    )
+
+                    if st.button("SALVAR LPU - MEI", use_container_width=True, key="btn_salvar_lpu_mei"):
+                        with st.spinner("Salvando..."):
+                            for index, row in df_editada_lpu_mei.iterrows():
+                                servico_val = row.get("servico")
+                                valor_val = row.get("valor")
+                                
+                                if not servico_val or pd.isna(servico_val):
+                                    continue
+                                    
+                                id_val = row.get("id")
+                                descricao_val = row.get("descricao")
+                                min_m_val = row.get("min_metragem")
+                                max_m_val = row.get("max_metragem")
+                                
+                                dados_para_salvar = {
+                                    "servico": str(servico_val).upper(),
+                                    "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
+                                    "descricao": str(descricao_val).upper() if pd.notnull(descricao_val) and descricao_val is not None else None,
+                                    "min_metragem": float(min_m_val) if pd.notnull(min_m_val) and min_m_val is not None else None,
+                                    "max_metragem": float(max_m_val) if pd.notnull(max_m_val) and max_m_val is not None else None
+                                }
+                                
+                                if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                    supabase.table("LPU_MEI").update(dados_para_salvar).eq("id", id_val).execute()
+                                else:
+                                    supabase.table("LPU_MEI").insert(dados_para_salvar).execute()
+                                    
+                            st.success("Tabela LPU - MEI atualizada com sucesso!")
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao acessar tabela LPU_MEI: {e}")
+
+            elif opcao_admin == "Tabela LPU Delivery - MEI":
+                st.write("### GERENCIAMENTO DA LPU DELIVERY - MEI")
+                try:
+                    dados_lpu_deliv_mei = supabase.table("LPU_DELIVERY_MEI").select("*").execute()
+                    
+                    if not dados_lpu_deliv_mei.data:
+                        df_lpu_deliv_mei = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
+                    else:
+                        df_lpu_deliv_mei = pd.DataFrame(dados_lpu_deliv_mei.data)
+                    
+                    configuracao_colunas_deliv_mei = {
+                        "id": None,
+                        "created_at": None,
+                        "servico": st.column_config.TextColumn("Serviço", required=True),
+                        "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
+                        "descricao": st.column_config.TextColumn("Descrição"),
+                        "min_metragem": st.column_config.NumberColumn("Mín Metragem", min_value=0.0),
+                        "max_metragem": st.column_config.NumberColumn("Máx Metragem", min_value=0.0)
+                    }
+                    
+                    df_editada_lpu_deliv_mei = st.data_editor(
+                        df_lpu_deliv_mei, 
+                        use_container_width=True, 
+                        num_rows="dynamic",
+                        column_config=configuracao_colunas_deliv_mei,
+                        disabled=["id", "created_at"],
+                        key="editor_tabela_lpu_delivery_mei"
+                    )
+
+                    if st.button("SALVAR LPU DELIVERY - MEI", use_container_width=True, key="btn_salvar_lpu_delivery_mei"):
+                        with st.spinner("Salvando..."):
+                            for index, row in df_editada_lpu_deliv_mei.iterrows():
+                                servico_val = row.get("servico")
+                                valor_val = row.get("valor")
+                                
+                                if not servico_val or pd.isna(servico_val):
+                                    continue
+                                    
+                                id_val = row.get("id")
+                                descricao_val = row.get("descricao")
+                                min_m_val = row.get("min_metragem")
+                                max_m_val = row.get("max_metragem")
+                                
+                                dados_para_salvar = {
+                                    "servico": str(servico_val).upper(),
+                                    "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
+                                    "descricao": str(descricao_val).upper() if pd.notnull(descricao_val) and descricao_val is not None else None,
+                                    "min_metragem": float(min_m_val) if pd.notnull(min_m_val) and min_m_val is not None else None,
+                                    "max_metragem": float(max_m_val) if pd.notnull(max_m_val) and max_m_val is not None else None
+                                }
+                                
+                                if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                    supabase.table("LPU_DELIVERY_MEI").update(dados_para_salvar).eq("id", id_val).execute()
+                                else:
+                                    supabase.table("LPU_DELIVERY_MEI").insert(dados_para_salvar).execute()
+                                    
+                            st.success("Tabela LPU DELIVERY - MEI atualizada com sucesso!")
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao acessar tabela LPU_DELIVERY_MEI: {e}")
+
+            elif opcao_admin == "Cadastro de Equipamento":
+                st.write("### GERENCIAMENTO DE CADASTRO DE EQUIPAMENTOS (CÓDIGO E DESCRIÇÃO)")
+                try:
+                    dados_cad_eq = supabase.table("CADASTRO_EQUIPAMENTOS").select("*").execute()
+                    
+                    if not dados_cad_eq.data:
+                        df_cad_eq = pd.DataFrame(columns=["id", "created_at", "codigo", "descricao"])
+                    else:
+                        df_cad_eq = pd.DataFrame(dados_cad_eq.data)
+                    
+                    config_colunas_cad_eq = {
+                        "id": None,
+                        "created_at": None,
+                        "codigo": st.column_config.TextColumn("Código", required=True),
+                        "descricao": st.column_config.TextColumn("Descrição do Equipamento", required=True)
+                    }
+                    
+                    df_editada_cad_eq = st.data_editor(
+                        df_cad_eq, 
+                        use_container_width=True, 
+                        num_rows="dynamic",
+                        column_config=config_colunas_cad_eq,
+                        disabled=["id", "created_at"]
+                    )
+
+                    if st.button("SALVAR CADASTRO DE EQUIPAMENTOS", use_container_width=True):
+                        with st.spinner("Salvando..."):
+                            for index, row in df_editada_cad_eq.iterrows():
+                                codigo_val = row.get("codigo")
+                                desc_val = row.get("descricao")
+                                
+                                if not codigo_val or pd.isna(codigo_val):
+                                    continue
+                                    
+                                id_val = row.get("id")
+                                
+                                dados_para_salvar = {
+                                    "codigo": str(codigo_val).strip().upper(),
+                                    "descricao": str(desc_val).strip().upper() if pd.notnull(desc_val) else ""
+                                }
+                                
+                                if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                    supabase.table("CADASTRO_EQUIPAMENTOS").update(dados_para_salvar).eq("id", id_val).execute()
+                                else:
+                                    supabase.table("CADASTRO_EQUIPAMENTOS").insert(dados_para_salvar).execute()
+                                    
+                            st.success("Cadastro de Equipamentos atualizado com sucesso!")
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao acessar tabela de cadastro de equipamentos: {e}")
+
+    if aba6 and perms_usuario.get("ve_colaborador", True):
+        st.subheader("👥 GESTÃO DE COLABORADOR")
+        
+        opcao_colaborador = sub_menu_colaborador if sub_menu_colaborador else "ATESTADO"
+        
+        if opcao_colaborador == "ATESTADO":
+            st.write("### 📋 GESTÃO DE ATESTADOS")
+            
+            if st.session_state.get("perfil") == "Administrador":
+                with st.form("form_lancar_atestado", clear_on_submit=True):
+                    st.write("**Novo Lançamento de Atestado**")
+                    col_at1, col_at2 = st.columns(2)
+                    with col_at1:
+                        nome_colab = st.text_input("NOME DO COLABORADOR")
+                        data_inicio_atestado = st.date_input("DATA DE INÍCIO", value=date.today())
+                        dias_afastamento = st.number_input("DIAS DE AFASTAMENTO", min_value=1, value=1, step=1)
+                    with col_at2:
+                        cid_atestado = st.text_input("CID (Opcional)")
+                        arquivo_atestado = st.file_uploader("UPLOAD DO ATESTADO (PDF/Imagem)", type=['pdf', 'jpg', 'png', 'jpeg'])
+                    
+                    obs_atestado = st.text_area("OBSERVAÇÕES")
+                    
+                    if st.form_submit_button("CADASTRAR ATESTADO", use_container_width=True):
+                        if not nome_colab:
+                            st.error("⚠️ Por favor, informe o nome do colaborador.")
+                        else:
+                            try:
+                                url_arquivo_anexado = ""
+                                if arquivo_atestado:
+                                    timestamp = int(time.time())
+                                    caminho_storage = f"atestados/{timestamp}_{arquivo_atestado.name}"
+                                    supabase.storage.from_("fotos_atendimentos").upload(caminho_storage, arquivo_atestado.getvalue())
+                                    url_arquivo_anexado = caminho_storage
+
+                                supabase.table("ATESTADO").insert({
+                                    "nome": str(nome_colab).upper(),
+                                    "data_inicio": str(data_inicio_atestado),
+                                    "dias": int(dias_afastamento),
+                                    "cid": str(cid_atestado).upper(),
+                                    "observacao": str(obs_atestado).upper(),
+                                    "arquivo_url": url_arquivo_anexado
+                                }).execute()
+                                st.success("Atestado cadastrado com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao salvar atestado: {e}")
+
+                st.divider()
+
+            try:
+                query_atestado = supabase.table("ATESTADO").select("*")
+                if st.session_state.get("perfil") != "Administrador":
+                    query_atestado = query_atestado.eq("nome", st.session_state.get("nome_tecnico", "").upper())
+                
+                dados_atestado = query_atestado.execute()
+                if not dados_atestado.data:
+                    df_atestado = pd.DataFrame(columns=["id", "created_at", "nome", "data_inicio", "dias", "cid", "observacao", "arquivo_url"])
+                else:
+                    df_atestado = pd.DataFrame(dados_atestado.data)
+
+                if st.session_state.get("perfil") == "Administrador":
+                    config_col_atestado = {
+                        "id": None,
+                        "created_at": None,
+                        "nome": st.column_config.TextColumn("Nome do Colaborador", required=True),
+                        "data_inicio": st.column_config.TextColumn("Data Início (AAAA-MM-DD)"),
+                        "dias": st.column_config.NumberColumn("Dias de Afastamento", min_value=1, step=1),
+                        "cid": st.column_config.TextColumn("CID"),
+                        "observacao": st.column_config.TextColumn("Observações"),
+                        "arquivo_url": st.column_config.TextColumn("Arquivo Salvo")
+                    }
+
+                    df_editada_atestado = st.data_editor(
+                        df_atestado,
+                        use_container_width=True,
+                        num_rows="dynamic",
+                        column_config=config_col_atestado,
+                        disabled=["id", "created_at", "arquivo_url"],
+                        key="editor_tabela_atestado"
+                    )
+
+                    if st.button("SALVAR ALTERAÇÕES - ATESTADO", use_container_width=True):
+                        with st.spinner("Salvando atestados..."):
+                            for idx, row in df_atestado.iterrows():
+                                nome_val = row.get("nome")
+                                if not nome_val or pd.isna(nome_val):
+                                    continue
+                                
+                                id_val = row.get("id")
+                                data_inicio_val = row.get("data_inicio")
+                                dias_val = row.get("dias")
+                                cid_val = row.get("cid")
+                                obs_val = row.get("observacao")
+
+                                payload = {
+                                    "nome": str(nome_val).upper(),
+                                    "data_inicio": str(data_inicio_val) if pd.notnull(data_inicio_val) else "",
+                                    "dias": int(dias_val) if pd.notnull(dias_val) else 1,
+                                    "cid": str(cid_val).upper() if pd.notnull(cid_val) else "",
+                                    "observacao": str(obs_val).upper() if pd.notnull(obs_val) else ""
+                                }
+
+                                if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                    supabase.table("ATESTADO").update(payload).eq("id", id_val).execute()
+                                else:
+                                    supabase.table("ATESTADO").insert(payload).execute()
+                                    
+                            st.success("Tabela de Atestados atualizada com sucesso!")
+                            st.rerun()
+                else:
+                    st.write("**Seus Atestados Registrados:**")
+                    if not df_atestado.empty:
+                        for idx, row in df_atestado.iterrows():
+                            st.markdown(f"- **Início:** {row.get('data_inicio')} | **Dias:** {row.get('dias')} | **CID:** {row.get('cid')} | **Obs:** {row.get('observacao')}")
+                            caminho_arq = row.get("arquivo_url")
+                            if caminho_arq and str(caminho_arq).strip() != "":
                                 try:
-                                    existe = supabase.table("TECNICOS").select("cpf").eq("cpf", c_cpf).execute()
-                                    if existe.data:
-                                        st.error("⚠️ Este CPF já está cadastrado!")
-                                    else:
-                                        supabase.table("TECNICOS").insert({
-                                            "nome": c_nome, 
-                                            "cpf": c_cpf, 
-                                            "email": c_email, 
-                                            "telefone": c_telefone, 
-                                            "senha": c_senha, 
-                                            "perfil": c_perfil,
-                                            "lpu_atribuida": c_lpu,
-                                            "ativo": True,
-                                            "primeiro_acesso": True if c_senha == "123456" else False
-                                        }).execute()
-                                        st.success(f"Usuário {c_nome} cadastrado com sucesso!")
-                                except Exception as e:
-                                    st.error(f"Erro ao cadastrar: {e}")
+                                    res_bytes_at = supabase.storage.from_("fotos_atendimentos").download(caminho_arq)
+                                    st.download_button(
+                                        label=f"📥 Baixar Atestado ({row.get('data_inicio')})",
+                                        data=res_bytes_at,
+                                        file_name=f"atestado_{row.get('data_inicio')}.pdf",
+                                        key=f"dl_at_{row.get('id')}"
+                                    )
+                                except Exception:
+                                    st.caption("Arquivo indisponível no momento.")
+                    else:
+                        st.info("Nenhum atestado registrado para o seu usuário.")
+            except Exception as e:
+                st.error(f"Erro ao acessar a tabela ATESTADO: {e}")
 
-                elif opcao_admin == "💰 Tabela LPU":
-                    st.write("### 💰 Gerenciamento da LPU - FIELD")
-                    try:
-                        dados_lpu = supabase.table("LPU").select("*").execute()
-                        
-                        if not dados_lpu.data:
-                            df_lpu = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
+        elif opcao_colaborador == "CONTRA CHEQUE":
+            st.write("### 💵 GESTÃO DE CONTRA CHEQUE")
+            
+            if st.session_state.get("perfil") == "Administrador":
+                st.info("Painel do Administrador: Faça o upload do arquivo e selecione o técnico correspondente.")
+                
+                try:
+                    res_tec_cc = supabase.table("TECNICOS").select("nome").eq("ativo", True).execute()
+                    lista_nomes_tecnicos = [t["nome"].upper() for t in res_tec_cc.data] if res_tec_cc.data else []
+                except Exception:
+                    lista_nomes_tecnicos = []
+
+                with st.form("form_upload_contracheque", clear_on_submit=True):
+                    col_cc1, col_cc2 = st.columns(2)
+                    with col_cc1:
+                        tecnico_escolhido = st.selectbox("TÉCNICO", ["SELECIONE..."] + lista_nomes_tecnicos)
+                        competencia_input = st.text_input("COMPETÊNCIA (Ex: 08/2026)", value=date.today().strftime("%m/%Y"))
+                    with col_cc2:
+                        valor_liquido_input = st.number_input("VALOR LÍQUIDO (R$)", min_value=0.0, format="%.2f")
+                        arquivo_cc = st.file_uploader("UPLOAD DO CONTRA CHEQUE (PDF/Imagem)", type=['pdf', 'jpg', 'png', 'jpeg'])
+                    
+                    if st.form_submit_button("ENVIAR CONTRA CHEQUE", use_container_width=True):
+                        if tecnico_escolhido == "SELECIONE..." or not arquivo_cc:
+                            st.error("⚠️ Selecione o técnico e envie o arquivo do contra-cheque.")
                         else:
-                            df_lpu = pd.DataFrame(dados_lpu.data)
-                        
-                        configuracao_colunas = {
-                            "id": None,
-                            "created_at": None,
-                            "servico": st.column_config.TextColumn("Serviço", required=True),
-                            "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
-                            "descricao": st.column_config.TextColumn("Descrição"),
-                            "min_metragem": st.column_config.NumberColumn("Mín Metragem", min_value=0.0),
-                            "max_metragem": st.column_config.NumberColumn("Máx Metragem", min_value=0.0)
-                        }
-                        
-                        df_editada_lpu = st.data_editor(
-                            df_lpu, 
-                            use_container_width=True, 
-                            num_rows="dynamic",
-                            column_config=configuracao_colunas,
-                            disabled=["id", "created_at"]
-                        )
+                            try:
+                                timestamp = int(time.time())
+                                caminho_storage_cc = f"contracheques/{timestamp}_{arquivo_cc.name}"
+                                supabase.storage.from_("fotos_atendimentos").upload(caminho_storage_cc, arquivo_cc.getvalue())
 
-                        if st.button("SALVAR LPU", use_container_width=True):
-                            with st.spinner("Salvando..."):
-                                for index, row in df_editada_lpu.iterrows():
-                                    servico_val = row.get("servico")
-                                    valor_val = row.get("valor")
-                                    
-                                    if not servico_val or pd.isna(servico_val):
-                                        continue
-                                        
-                                    id_val = row.get("id")
-                                    descricao_val = row.get("descricao")
-                                    min_m_val = row.get("min_metragem")
-                                    max_m_val = row.get("max_metragem")
-                                    
-                                    dados_para_salvar = {
-                                        "servico": str(servico_val),
-                                        "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
-                                        "descricao": str(descricao_val) if pd.notnull(descricao_val) and descricao_val is not None else None,
-                                        "min_metragem": float(min_m_val) if pd.notnull(min_m_val) and min_m_val is not None else None,
-                                        "max_metragem": float(max_m_val) if pd.notnull(max_m_val) and max_m_val is not None else None
-                                    }
-                                    
-                                    if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
-                                        supabase.table("LPU").update(dados_para_salvar).eq("id", id_val).execute()
-                                    else:
-                                        supabase.table("LPU").insert(dados_para_salvar).execute()
-                                        
-                                st.success("Tabela LPU atualizada com sucesso!")
+                                supabase.table("CONTRA_CHEQUE").insert({
+                                    "nome": tecnico_escolhido,
+                                    "competencia": competencia_input.upper(),
+                                    "valor_liquido": float(valor_liquido_input),
+                                    "status": "DISPONÍVEL",
+                                    "arquivo_url": caminho_storage_cc
+                                }).execute()
+                                
+                                st.success(f"Contra-cheque enviado com sucesso para {tecnico_escolhido}!")
                                 st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao acessar tabela LPU: {e}")
+                            except Exception as e:
+                                st.error(f"Erro ao enviar contra-cheque: {e}")
+                
+                st.divider()
 
-                elif opcao_admin == "📦 Tabela LPU DELIVERY":
-                    st.write("### 📦 Gerenciamento da LPU - DELIVERY")
-                    try:
-                        dados_lpu_deliv = supabase.table("LPU DELIVERY").select("*").execute()
-                        
-                        if not dados_lpu_deliv.data:
-                            df_lpu_deliv = pd.DataFrame(columns=["id", "created_at", "servico", "valor", "descricao", "min_metragem", "max_metragem"])
-                        else:
-                            df_lpu_deliv = pd.DataFrame(dados_lpu_deliv.data)
-                        
-                        configuracao_colunas_deliv = {
-                            "id": None,
-                            "created_at": None,
-                            "servico": st.column_config.TextColumn("Serviço", required=True),
-                            "valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", min_value=0.0),
-                            "descricao": st.column_config.TextColumn("Descrição"),
-                            "min_metragem": st.column_config.NumberColumn("Mín Metragem", min_value=0.0),
-                            "max_metragem": st.column_config.NumberColumn("Máx Metragem", min_value=0.0)
-                        }
-                        
-                        df_editada_lpu_deliv = st.data_editor(
-                            df_lpu_deliv, 
-                            use_container_width=True, 
-                            num_rows="dynamic",
-                            column_config=configuracao_colunas_deliv,
-                            disabled=["id", "created_at"]
-                        )
+            try:
+                query_cc = supabase.table("CONTRA_CHEQUE").select("*")
+                if st.session_state.get("perfil") != "Administrador":
+                    query_cc = query_cc.eq("nome", st.session_state.get("nome_tecnico", "").upper())
+                
+                dados_cc = query_cc.execute()
+                if not dados_cc.data:
+                    df_cc = pd.DataFrame(columns=["id", "created_at", "nome", "competencia", "valor_liquido", "status", "arquivo_url"])
+                else:
+                    df_cc = pd.DataFrame(dados_cc.data)
 
-                        if st.button("SALVAR LPU DELIVERY", use_container_width=True):
-                            with st.spinner("Salvando..."):
-                                for index, row in df_editada_lpu_deliv.iterrows():
-                                    servico_val = row.get("servico")
-                                    valor_val = row.get("valor")
-                                    
-                                    if not servico_val or pd.isna(servico_val):
-                                        continue
-                                        
-                                    id_val = row.get("id")
-                                    descricao_val = row.get("descricao")
-                                    min_m_val = row.get("min_metragem")
-                                    max_m_val = row.get("max_metragem")
-                                    
-                                    dados_para_salvar = {
-                                        "servico": str(servico_val),
-                                        "valor": float(valor_val) if pd.notnull(valor_val) else 0.0,
-                                        "descricao": str(descricao_val) if pd.notnull(descricao_val) and descricao_val is not None else None,
-                                        "min_metragem": float(min_m_val) if pd.notnull(min_m_val) and min_m_val is not None else None,
-                                        "max_metragem": float(max_m_val) if pd.notnull(max_m_val) and max_m_val is not None else None
-                                    }
-                                    
-                                    if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
-                                        supabase.table("LPU DELIVERY").update(dados_para_salvar).eq("id", id_val).execute()
-                                    else:
-                                        supabase.table("LPU DELIVERY").insert(dados_para_salvar).execute()
-                                        
-                                st.success("Tabela LPU DELIVERY atualizada com sucesso!")
-                                st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao acessar tabela LPU DELIVERY: {e}")
+                if st.session_state.get("perfil") == "Administrador":
+                    config_col_cc = {
+                        "id": None,
+                        "created_at": None,
+                        "nome": st.column_config.TextColumn("Nome do Colaborador", required=True),
+                        "competencia": st.column_config.TextColumn("Competência (Ex: 08/2026)", required=True),
+                        "valor_liquido": st.column_config.NumberColumn("Valor Líquido (R$)", format="R$ %.2f", min_value=0.0),
+                        "status": st.column_config.SelectboxColumn("Status", options=["DISPONÍVEL", "PENDENTE"], required=True),
+                        "arquivo_url": st.column_config.TextColumn("Arquivo Salvo")
+                    }
 
-                elif opcao_admin == "📋 Cadastro de Equipamento":
-                    st.write("### 📋 Gerenciamento de Cadastro de Equipamentos (Código e Descrição)")
-                    try:
-                        dados_cad_eq = supabase.table("CADASTRO_EQUIPAMENTOS").select("*").execute()
-                        
-                        if not dados_cad_eq.data:
-                            df_cad_eq = pd.DataFrame(columns=["id", "created_at", "codigo", "descricao"])
-                        else:
-                            df_cad_eq = pd.DataFrame(dados_cad_eq.data)
-                        
-                        config_colunas_cad_eq = {
-                            "id": None,
-                            "created_at": None,
-                            "codigo": st.column_config.TextColumn("Código", required=True),
-                            "descricao": st.column_config.TextColumn("Descrição do Equipamento", required=True)
-                        }
-                        
-                        df_editada_cad_eq = st.data_editor(
-                            df_cad_eq, 
-                            use_container_width=True, 
-                            num_rows="dynamic",
-                            column_config=config_colunas_cad_eq,
-                            disabled=["id", "created_at"]
-                        )
+                    df_editada_cc = st.data_editor(
+                        df_cc,
+                        use_container_width=True,
+                        num_rows="dynamic",
+                        column_config=config_col_cc,
+                        disabled=["id", "created_at", "arquivo_url"],
+                        key="editor_tabela_contracheque"
+                    )
 
-                        if st.button("SALVAR CADASTRO DE EQUIPAMENTOS", use_container_width=True):
-                            with st.spinner("Salvando..."):
-                                for index, row in df_editada_cad_eq.iterrows():
-                                    codigo_val = row.get("codigo")
-                                    desc_val = row.get("descricao")
+                    if st.button("SALVAR ALTERAÇÕES - CONTRA CHEQUE", use_container_width=True):
+                        with st.spinner("Salvando contracheques..."):
+                            for index, row in df_editada_cc.iterrows():
+                                nome_val = row.get("nome")
+                                if not nome_val or pd.isna(nome_val):
+                                    continue
+                                
+                                id_val = row.get("id")
+                                comp_val = row.get("competencia")
+                                valor_val = row.get("valor_liquido")
+                                status_val = row.get("status")
+
+                                payload = {
+                                    "nome": str(nome_val).upper(),
+                                    "competencia": str(comp_val).upper() if pd.notnull(comp_val) else "",
+                                    "valor_liquido": float(valor_val) if pd.notnull(valor_val) else 0.0,
+                                    "status": str(status_val).upper() if pd.notnull(status_val) else "PENDENTE"
+                                }
+
+                                if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
+                                    supabase.table("CONTRA_CHEQUE").update(payload).eq("id", id_val).execute()
+                                else:
+                                    supabase.table("CONTRA_CHEQUE").insert(payload).execute()
                                     
-                                    if not codigo_val or pd.isna(codigo_val):
-                                        continue
-                                        
-                                    id_val = row.get("id")
-                                    
-                                    dados_para_salvar = {
-                                        "codigo": str(codigo_val).strip(),
-                                        "descricao": str(desc_val).strip() if pd.notnull(desc_val) else ""
-                                    }
-                                    
-                                    if id_val is not None and pd.notnull(id_val) and str(id_val).strip() != "":
-                                        supabase.table("CADASTRO_EQUIPAMENTOS").update(dados_para_salvar).eq("id", id_val).execute()
-                                    else:
-                                        supabase.table("CADASTRO_EQUIPAMENTOS").insert(dados_para_salvar).execute()
-                                        
-                                st.success("Cadastro de Equipamentos atualizado com sucesso!")
-                                st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao acessar tabela de cadastro de equipamentos: {e}")
+                            st.success("Tabela de Contra Cheque atualizada com sucesso!")
+                            st.rerun()
+                else:
+                    st.write("**Seus Contra-cheques Disponíveis:**")
+                    if not df_cc.empty:
+                        for idx, row in df_cc.iterrows():
+                            st.markdown(f"- **Competência:** {row.get('competencia')} | **Valor:** R$ {float(row.get('valor_liquido', 0)):,.2f} | **Status:** {row.get('status')}")
+                            caminho_arq = row.get("arquivo_url")
+                            if caminho_arq and str(caminho_arq).strip() != "":
+                                try:
+                                    res_bytes_cc = supabase.storage.from_("fotos_atendimentos").download(caminho_arq)
+                                    st.download_button(
+                                        label=f"📥 Baixar Contra-cheque ({row.get('competencia')})",
+                                        data=res_bytes_cc,
+                                        file_name=f"contracheque_{row.get('competencia').replace('/', '_')}.pdf",
+                                        key=f"dl_cc_{row.get('id')}"
+                                    )
+                                except Exception:
+                                    st.caption("Arquivo indisponível no momento.")
+                    else:
+                        st.info("Nenhum contra-cheque disponível no momento.")
+            except Exception as e:
+                st.error(f"Erro ao acessar a tabela CONTRA_CHEQUE: {e}")
