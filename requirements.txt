@@ -4,3 +4,4 @@ supabase>=2.0.0
 reportlab
 streamlit-drawable-canvas
 fpdf
+streamlit-option-menu
