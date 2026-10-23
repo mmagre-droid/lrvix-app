@@ -1,5 +1,6 @@
 streamlit
-supabase>=2.0.0
 pandas
-fpdf
+supabase>=2.0.0
 reportlab
+streamlit-drawable-canvas
+fpdf
